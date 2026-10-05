@@ -15,10 +15,10 @@ public class ConsoleService extends Service {
  private PowerManager.WakeLock awake;private Handler handler=new Handler();private boolean capturing,stopping;
  private final Runnable tick=new Runnable(){public void run(){refreshBadge();handler.postDelayed(this,1500);}};
  public static synchronized void endSession(){ConsoleServer old=server;server=null;url="";pin="";root=false;if(old!=null)old.close();}
- public void onCreate(){super.onCreate();NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);nm.createNotificationChannel(new NotificationChannel("e02-session","E02 AI 连接",NotificationManager.IMPORTANCE_LOW));
+ public void onCreate(){super.onCreate();NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);nm.createNotificationChannel(new NotificationChannel("e02-session","银河 E02 星匣",NotificationManager.IMPORTANCE_LOW));
   PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class),PendingIntent.FLAG_UPDATE_CURRENT);
   PendingIntent stop=PendingIntent.getService(this,1,new Intent(this,ConsoleService.class).setAction("stop"),PendingIntent.FLAG_UPDATE_CURRENT);
-  startForeground(20,new Notification.Builder(this,"e02-session").setSmallIcon(getApplicationInfo().icon).setContentTitle("E02 AI · 命令回传运行中").setContentText("点击返回助手；停止会作废连接码和关闭桥接").setContentIntent(open).setOngoing(true).addAction(0,"停止连接",stop).build());
+  startForeground(20,new Notification.Builder(this,"e02-session").setSmallIcon(getApplicationInfo().icon).setContentTitle("银河 E02 星匣 · 连接中").setContentText("点击返回助手；停止会作废连接码和关闭桥接").setContentIntent(open).setOngoing(true).addAction(0,"停止连接",stop).build());
   awake=((PowerManager)getSystemService(POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"E02:ConsoleSession");awake.acquire();windows=(WindowManager)getSystemService(WINDOW_SERVICE);handler.post(tick);
  }
  public int onStartCommand(Intent intent,int flags,int id){if(intent!=null&&"stop".equals(intent.getAction())){endSession();stopSelf();return START_NOT_STICKY;}if(server==null){stopSelf();return START_NOT_STICKY;}refreshBadge();return START_NOT_STICKY;}
@@ -36,10 +36,10 @@ public class ConsoleService extends Service {
  public void onDestroy(){stopping=true;handler.removeCallbacksAndMessages(null);removeBadge();endSession();if(awake!=null&&awake.isHeld())awake.release();stopForeground(true);super.onDestroy();}
  public android.os.IBinder onBind(Intent i){return null;}
  private final class Badge extends View {
-  Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);Badge(Context c){super(c);setContentDescription("E02 AI 保活窗口，点击截图，长按打开助手，拖动调整位置");}
+  Paint p=new Paint(Paint.ANTI_ALIAS_FLAG);Badge(Context c){super(c);setContentDescription("E02 星匣保活窗口，点击截图，长按打开助手，拖动调整位置");}
   void fill(Canvas c,int color){p.setColor(color);p.setStyle(Paint.Style.FILL);}
   protected void onDraw(Canvas c){super.onDraw(c);c.save();c.scale(getWidth()/80f,getHeight()/44f);fill(c,Color.argb(96,20,32,36));c.drawRoundRect(1,1,79,43,8,8,p);
-   fill(c,Color.argb(220,255,255,255));p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(13);c.drawText("E02 AI",40,18,p);p.setTypeface(Typeface.DEFAULT);p.setTextSize(12);c.drawText("保活窗口",40,35,p);c.restore();
+   fill(c,Color.argb(220,255,255,255));p.setTypeface(Typeface.DEFAULT_BOLD);p.setTextAlign(Paint.Align.CENTER);p.setTextSize(13);c.drawText("E02 星匣",40,18,p);p.setTypeface(Typeface.DEFAULT);p.setTextSize(12);c.drawText("保活窗口",40,35,p);c.restore();
   }
  }
 }

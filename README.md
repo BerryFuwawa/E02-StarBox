@@ -1,14 +1,18 @@
-# Galaxy-E02-tools
+# 银河 E02 星匣
 
-**E02 AI 连接助手**，用于星舰 7 车机的电脑连接、命令回传和快捷截图。
+<img src="artwork/ic_launcher.svg" width="96" alt="银河 E02 星匣 Logo">
 
-已在 **2025 款星舰 7 · Flyme Auto 2.5.0 · Android 9** 上使用验证。当前版本 **1.5**。
+**银河 E02 星匣**，用于星舰 7 车机的电脑连接、命令回传和快捷截图。
 
-**[下载安装包](https://github.com/BerryFuwawa/Galaxy-E02-tools/releases/download/v1.5/Galaxy-E02-tools-1.5.apk)** · [使用指南](docs/使用指南.md)
+已在 **2025 款星舰 7 · Flyme Auto 2.5.0 · Android 9** 上使用验证。当前版本 **1.5.1**。
+
+**[下载安装包](https://github.com/BerryFuwawa/Galaxy-E02-tools/releases/download/v1.5.1/Galaxy-E02-tools-1.5.1.apk)** · [使用指南](docs/使用指南.md)
 
 ## 软件截图
 
 ### 车机主界面
+
+以下为 v1.5 实车截图。v1.5.1 更名为「银河 E02 星匣」，功能相同。
 
 ![车机主界面](docs/images/car-main.png)
 
@@ -44,7 +48,7 @@
 
 ## 获取软件
 
-在 [版本下载页](https://github.com/BerryFuwawa/Galaxy-E02-tools/releases/tag/v1.5) 下载 APK 并安装到车机。桌面图标名称为「E02 命令回传助手」。已有同签名版本可覆盖安装。
+在 [版本下载页](https://github.com/BerryFuwawa/Galaxy-E02-tools/releases/tag/v1.5.1) 下载 APK 并安装到车机。桌面图标名称为「银河 E02 星匣」。已有同签名版本可覆盖安装。
 
 需要自行构建，见 [编译说明](docs/编译说明.md)。
 

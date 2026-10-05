@@ -55,7 +55,7 @@ def main():
         run(executable(java,'keytool'),'-genkeypair','-keystore',key,'-storepass',password,'-alias','galaxy','-keyalg','RSA','-keysize','2048','-validity','3650','-dname','CN=Galaxy E02 Tools Development','-storetype','PKCS12')
     dist = ROOT/'dist'
     dist.mkdir(exist_ok=True)
-    apk = dist/'Galaxy-E02-tools-1.5.apk'
+    apk = dist/'Galaxy-E02-tools-1.5.1.apk'
     run(executable(java,'java'),'-jar',tools/'lib/apksigner.jar','sign','--ks',key,'--ks-pass','pass:'+password,'--ks-key-alias','galaxy','--min-sdk-version','28','--v4-signing-enabled','false','--out',apk,aligned)
     run(executable(java,'java'),'-jar',tools/'lib/apksigner.jar','verify','--verbose',apk)
     run(executable(tools,'zipalign'),'-c','4',apk)
