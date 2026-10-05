@@ -6,15 +6,19 @@
 
 已在 **2025 款星舰 7 · Flyme Auto 2.5.0 · Android 9** 上使用验证。当前版本 **1.5.1**。
 
-**[下载安装包](https://github.com/BerryFuwawa/Galaxy-E02-tools/releases/download/v1.5.1/Galaxy-E02-tools-1.5.1.apk)** · [使用指南](docs/使用指南.md)
+**[下载安装包](https://github.com/BerryFuwawa/Galaxy-E02-tools/releases/download/v1.5.1/%E9%93%B6%E6%B2%B3E02%E6%98%9F%E5%8C%A3-v1.5.1.apk)** · [使用指南](docs/使用指南.md)
 
 ## 软件截图
 
 ### 车机主界面
 
-以下为 v1.5 实车截图。v1.5.1 更名为「银河 E02 星匣」，功能相同。
+v1.5.1 实车截图。
 
 ![车机主界面](docs/images/car-main.png)
+
+### 车机应用列表
+
+![车机应用列表](docs/images/app-library.png)
 
 ### 电脑网页终端
 
@@ -32,9 +36,10 @@
 
 1. 安装软件，让电脑和车机连接同一个 Wi-Fi，允许悬浮窗权限。
 2. 选择 root 使用时间，点击 **复制桥接命令，去 EVCC 粘贴执行**。
-3. 打开 EVCC，粘贴命令并点击 **ROOT 执行**，然后返回助手。
-4. 检测成功后，按需勾选 **允许本次网页会话执行 root 命令**，点击 **启动局域网命令回传**。
-5. 在电脑浏览器打开软件显示的网址，输入四位连接码，即可执行命令。
+3. 打开 **EVCC → 终端**，在左下 **自定义命令** 的 **命令** 输入框粘贴，点击 **Root 执行**。
+4. 返回 **银河 E02 星匣**，点击 **重新检测 root（EVCC 桥接 / su）**。
+5. 检测成功后，按需勾选 **允许本次网页会话执行 root 命令**，点击 **启动局域网命令回传**。
+6. 在电脑浏览器打开软件显示的网址，输入四位连接码，即可执行命令。
 
 详细操作见 [使用指南](docs/使用指南.md)。软件需要已有的 root 执行工具；安装本软件不会自动获得 root。
 
@@ -48,7 +53,7 @@
 
 ## 获取软件
 
-在 [版本下载页](https://github.com/BerryFuwawa/Galaxy-E02-tools/releases/tag/v1.5.1) 下载 APK 并安装到车机。桌面图标名称为「银河 E02 星匣」。已有同签名版本可覆盖安装。
+在 [版本下载页](https://github.com/BerryFuwawa/Galaxy-E02-tools/releases/tag/v1.5.1) 下载 **银河E02星匣-v1.5.1.apk** 并安装到车机。桌面图标名称为「银河 E02 星匣」。已有同签名版本可覆盖安装。
 
 需要自行构建，见 [编译说明](docs/编译说明.md)。
 
