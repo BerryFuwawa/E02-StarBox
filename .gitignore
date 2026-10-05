@@ -1,0 +1,13 @@
+build/
+dist/
+.local/
+__pycache__/
+*.pyc
+*.apk
+*.p12
+*.jks
+*.keystore
+*.pem
+*.log
+.idea/
+.vscode/
