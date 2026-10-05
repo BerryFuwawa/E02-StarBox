@@ -6,7 +6,7 @@
 
 已在 **2025 款星舰 7 · Flyme Auto 2.5.0 · Android 9** 上使用验证。当前版本 **1.5.1**。
 
-**[下载安装包](https://github.com/BerryFuwawa/Galaxy-E02-tools/releases/download/v1.5.1/Galaxy-E02-Starbox-v1.5.1.apk)** · [使用指南](docs/使用指南.md)
+**[下载安装包](https://github.com/BerryFuwawa/Galaxy-E02-Starbox/releases/download/v1.5.1/Galaxy-E02-Starbox-v1.5.1.apk)** · [使用指南](docs/使用指南.md)
 
 ## 软件截图
 
@@ -53,7 +53,7 @@ v1.5.1 实车截图。
 
 ## 获取软件
 
-在 [版本下载页](https://github.com/BerryFuwawa/Galaxy-E02-tools/releases/tag/v1.5.1) 下载 **Galaxy-E02-Starbox-v1.5.1.apk** 并安装到车机。桌面图标名称为「银河 E02 星匣」。已有同签名版本可覆盖安装。
+在 [版本下载页](https://github.com/BerryFuwawa/Galaxy-E02-Starbox/releases/tag/v1.5.1) 下载 **Galaxy-E02-Starbox-v1.5.1.apk** 并安装到车机。桌面图标名称为「银河 E02 星匣」。已有同签名版本可覆盖安装。
 
 需要自行构建，见 [编译说明](docs/编译说明.md)。
 
