@@ -1,0 +1,8 @@
+{
+  "version": "1.7.0",
+  "versionCode": 10,
+  "apk": "https://github.com/BerryFuwawa/E02-StarBox/releases/download/v1.7.0/E02-Starbox-v1.7.0.apk",
+  "size": 11793644,
+  "sha256": "1fd6a4dc7abf80494ed4361010fd6213e20a7848fe1c69c759dd37706d83dede",
+  "notes": "简化连接状态、后台通知及错误提示，统一授权引导与按钮名称；保留必要技术名称和诊断详情。"
+}

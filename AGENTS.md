@@ -20,3 +20,5 @@
 - 圆角样式最新交付在D:/Codex/OUT/20261006-E02-StarBox-rounded，已通过FRP无线ADB覆盖安装；见docs/圆角弹窗验收.md。后续弹窗遵循docs/界面设计规范.md。
 
 - 最新提示修正版在D:/Codex/OUT/20261006-E02-StarBox-wording；已实车原签名覆盖安装，见docs/用户提示修正验收.md。
+
+- 2026-10-06用户批准本次上传，v1.7.0已发布至BerryFuwawa/E02-StarBox，旧路径跳转，见docs/发布记录.md。后续上传仍须另行批准。
