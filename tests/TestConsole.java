@@ -9,6 +9,9 @@ public class TestConsole {
  static int passed;static String token="0427";static ConsoleServer server;
  static void check(boolean okay,String name){if(!okay)throw new AssertionError(name);System.out.println("PASS "+name);passed++;}
  static String read(InputStream in)throws Exception{ByteArrayOutputStream out=new ByteArrayOutputStream();byte[] b=new byte[4096];int n;while((n=in.read(b))!=-1)out.write(b,0,n);return new String(out.toByteArray(),StandardCharsets.UTF_8);}
+ static void remote(String host,String origin,int expected)throws Exception{
+  try(Socket s=new Socket("127.0.0.1",server.port())){s.setSoTimeout(2000);String q="GET /api/status HTTP/1.1\r\nHost: "+host+"\r\nX-E02-Token: "+token+"\r\nOrigin: "+origin+"\r\nConnection: close\r\n\r\n";s.getOutputStream().write(q.getBytes(StandardCharsets.UTF_8));check(read(s.getInputStream()).startsWith("HTTP/1.1 "+expected+" "),"remote Host / Origin "+expected);}
+ }
  static String request(String path,String code,String mode,String body,int expected,String origin)throws Exception{
   HttpURLConnection connection=(HttpURLConnection)new URL("http://127.0.0.1:"+server.port()+path).openConnection();connection.setConnectTimeout(2000);connection.setReadTimeout(38000);
   if(code!=null)connection.setRequestProperty("X-E02-Token",code);if(mode!=null)connection.setRequestProperty("X-E02-Mode",mode);if(origin!=null)connection.setRequestProperty("Origin",origin);
@@ -22,6 +25,11 @@ public class TestConsole {
    check(request("/",null,null,null,200,null).contains("E02"),"frontend served");
    request("/api/status",null,null,null,401,null);request("/api/status","wrong",null,null,401,null);
    check(request("/api/status",token,null,null,200,null).contains("\"rootAllowed\":false"),"root permission status");
+   server.setRemoteOrigin("https://console.example.test");
+   remote("console.example.test","https://console.example.test",200);
+   remote("evil.example.test","https://console.example.test",403);
+   remote("console.example.test","http://console.example.test",403);
+   server.setRemoteOrigin(null);remote("console.example.test","https://console.example.test",403);
    request("/api/run",token,"root","id",403,null);
    request("/api/run",token,"unknown","id",400,null);
    request("/api/run",token,"normal","id",403,"http://evil.invalid");

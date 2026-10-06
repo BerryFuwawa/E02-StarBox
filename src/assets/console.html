@@ -1,6 +1,6 @@
-<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>银河 E02 星匣</title>
+<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>E02星匣</title>
 <style>body{font:17px system-ui,sans-serif;margin:0;background:#f1f7f4;color:#17352a}main{max-width:960px;margin:28px auto;padding:24px}h1{font-size:28px}input,textarea,select,button{font:inherit;padding:12px;border:1px solid #a5baaf;border-radius:7px;box-sizing:border-box}textarea{width:100%;font-family:monospace;min-height:160px}input{width:min(100%,430px)}button{background:#245f49;color:white;cursor:pointer}button:disabled{opacity:.5;cursor:default}.row{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0}pre{white-space:pre-wrap;overflow-wrap:anywhere;background:white;border:1px solid #d0ddd5;padding:16px;min-height:40px}label{display:block;margin:15px 0 7px}small{color:#506c5f}.state{min-height:25px}h2{font-size:19px}#download{display:none}</style>
-<main><h1>银河 E02 星匣</h1><p>命令在车机执行，结果直接返回此网页。连接由车机前台服务维持，可以切到其他应用。</p>
+<main><h1>E02星匣</h1><p>命令在车机执行，结果直接返回此网页。切到其他应用后仍可保持连接。</p>
 <label for="token">车机上显示的本次连接码</label><div class="row"><input id="token" type="password" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="输入 4 位数字"><button id="connect">验证连接</button></div><p id="connection" class="state" role="status">尚未验证</p>
 <label for="mode">执行权限</label><select id="mode"><option value="normal">普通应用权限</option><option id="root-option" value="root" disabled>root（需车机本次授权）</option></select>
 <label for="command">命令（支持多行，不加 adb shell 前缀）</label><textarea id="command" spellcheck="false">id</textarea>

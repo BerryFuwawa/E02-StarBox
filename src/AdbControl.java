@@ -1,17 +1,25 @@
 package com.e02.rootconsole;
-/** Generates narrowly scoped commands; all variable shell values are validated IPv4 addresses. */
+/** Only Starbox-owned chains and the vendor USB property are changed. */
 public final class AdbControl {
+ public static final Object LOCK=new Object();
  public static String ipv4(String s){if(s==null||!s.matches("[0-9]{1,3}(\\.[0-9]{1,3}){3}"))throw new IllegalArgumentException("请输入电脑的 IPv4 地址");for(String part:s.split("\\.")){int n=Integer.parseInt(part);if(n>255||(part.length()>1&&part.startsWith("0")))throw new IllegalArgumentException("IPv4 地址无效");}if(s.startsWith("127.")||s.equals("0.0.0.0")||Integer.parseInt(s.split("\\.")[0])>=224)throw new IllegalArgumentException("请选择局域网电脑地址");return s;}
- private static String rule(String host,String pc){return "-i wlan0 -s "+ipv4(pc)+" -d "+ipv4(host)+" -p tcp --dport 5555 -m comment --comment e02-wifi-adb -j ACCEPT";}
- public static String wireless(boolean on,String host,String pc){String r=rule(host,pc);String old=r;String off="-i wlan0 -p tcp --dport 5555 -m comment --comment e02-adb-off -j DROP";
-  String clean="while iptables -C INPUT "+old+" 2>/dev/null; do iptables -D INPUT "+old+" || exit 1; done\n";
-  String managed="iptables -N E02_WIFI_ADB 2>/dev/null || iptables -L E02_WIFI_ADB >/dev/null || exit 1\niptables -F E02_WIFI_ADB || exit 1\n";
-  String jump="-i wlan0 -p tcp --dport 5555 -j E02_WIFI_ADB";
-  String removeJump="while iptables -C INPUT "+jump+" 2>/dev/null; do iptables -D INPUT "+jump+" || exit 1; done\n";
-  String removeOff="while iptables -C INPUT "+off+" 2>/dev/null; do iptables -D INPUT "+off+" || exit 1; done\n";
-  if(on)return managed+"iptables -A E02_WIFI_ADB "+r+" || exit 1\niptables -A E02_WIFI_ADB -j DROP || exit 1\n"+removeJump+"iptables -I INPUT 1 "+jump+" || exit 1\n"+clean+removeOff+"setprop service.adb.tcp.port 5555\nif ! netstat -lnt | grep -q ':5555 '; then stop adbd; start adbd; fi\nprintf '无线 ADB 已开放给电脑 "+pc+"，仅 wlan0/TCP5555\\n'\n";
-  return "iptables -C INPUT "+off+" 2>/dev/null || iptables -I INPUT 1 "+off+" || exit 1\n"+removeJump+clean+"printf '无线 ADB 已关闭；有线 ADB 不受此规则影响\\n'\n";
+ public static String iface(String s){if(s==null||!s.matches("[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,31}"))throw new IllegalArgumentException("网络接口无效");return s;}
+ private static String rule(String host,String pc,String net){return "-i "+iface(net)+" -s "+ipv4(pc)+" -d "+ipv4(host)+" -p tcp --dport 5555 -m comment --comment e02-wifi-adb -j ACCEPT";}
+ public static String wireless(boolean on,String host,String pc){return wireless(on,host,pc,"wlan0");}
+ /** Network changes suspend LAN peers without blocking the private local FRP endpoint. */
+ public static String localOnly(){return wireless(false,"","","").replace("iptables -A $next -j DROP\n","iptables -A $next -i lo -s 127.0.0.1 -d 127.0.0.1 -j ACCEPT\niptables -A $next -j DROP\n")+"setprop service.adb.tcp.port 5555\nif ! netstat -lnt | grep -q ':5555 '; then stop adbd; start adbd; fi\n";}
+ public static String localStatus(){return "active=$(iptables -S E02_WIFI_ADB | sed -n 's/.*-j \\(E02_ADB_[AB]\\).*/\\1/p' | head -n 1)\nif [ -n \"$active\" ] && iptables -C INPUT -p tcp --dport 5555 -j E02_WIFI_ADB 2>/dev/null && iptables -C \"$active\" -i lo -s 127.0.0.1 -d 127.0.0.1 -j ACCEPT 2>/dev/null && netstat -lnt | grep -q ':5555 '; then echo LOCAL_ADB=true; else echo LOCAL_ADB=false; fi\n";}
+ public static String wireless(boolean on,String host,String pc,String net){String r=on?rule(host,pc,net):"";
+  String setup="set -e\niptables -N E02_WIFI_ADB 2>/dev/null || iptables -L E02_WIFI_ADB >/dev/null\n"+
+   "if iptables -S E02_WIFI_ADB | grep -q -- '-j E02_ADB_A'; then next=E02_ADB_B; else next=E02_ADB_A; fi\n"+
+   "iptables -N $next 2>/dev/null || iptables -L $next >/dev/null\niptables -F $next\n"+(on?"iptables -A $next -i lo -s 127.0.0.1 -d 127.0.0.1 -j ACCEPT\niptables -A $next "+r+"\n":"")+"iptables -A $next -j DROP\n"+
+   "if iptables -S E02_WIFI_ADB | grep -q -- '^-A '; then iptables -R E02_WIFI_ADB 1 -j $next; else iptables -A E02_WIFI_ADB -j $next; fi\n"+
+   "while [ $(iptables -S E02_WIFI_ADB | grep -c -- '^-A ') -gt 1 ]; do iptables -D E02_WIFI_ADB 2; done\n"+
+   "iptables -C INPUT -p tcp --dport 5555 -j E02_WIFI_ADB 2>/dev/null || iptables -I INPUT 1 -p tcp --dport 5555 -j E02_WIFI_ADB\n"+
+   "iptables -S INPUT | while read -r line; do case \"$line\" in *'--comment e02-wifi-adb '*|*'--comment e02-adb-off '*|*'--comment \"e02-wifi-adb\" '*|*'--comment \"e02-adb-off\" '*|*' -i '*' -j E02_WIFI_ADB') set -- $line; shift; iptables -D \"$@\" ;; esac; done\n";
+  return setup+(on?"setprop service.adb.tcp.port 5555\nif ! netstat -lnt | grep -q ':5555 '; then echo '正在重启 adbd，有线和无线连接可能短暂中断'; stop adbd; start adbd; fi\nprintf '已放行 "+pc+" → "+host+":5555（"+iface(net)+"）；请在电脑验证连接\\n'\n":"printf '无线 TCP5555 已阻止新连接，有线 ADB 保持原设置\\n'\n");
  }
  public static String wired(boolean on){return "test -f /vendor/bin/change_usb_mode.sh || { echo '未找到 E02 厂家 USB 切换脚本'; exit 1; }\nsetprop persist.vendor.setusbmode "+on+"\ngetprop persist.vendor.setusbmode\n";}
- public static String status(String host,String pc){if(pc==null||pc.trim().isEmpty())return "printf 'WIRED='; getprop persist.vendor.setusbmode\nprintf 'WIRELESS=unknown\\n'\n";String r=rule(host,pc);return "printf 'WIRED='; getprop persist.vendor.setusbmode\nprintf 'WIRELESS='; if iptables -C INPUT -i wlan0 -p tcp --dport 5555 -m comment --comment e02-adb-off -j DROP 2>/dev/null; then echo false; elif iptables -C INPUT -i wlan0 -p tcp --dport 5555 -j E02_WIFI_ADB 2>/dev/null && iptables -C E02_WIFI_ADB "+r+" 2>/dev/null; then echo true; elif iptables -C INPUT "+r+" 2>/dev/null; then echo true; else echo false; fi\n";}
+ public static String status(String host,String pc){return status(host,pc,"wlan0");}
+ public static String status(String host,String pc,String net){String header="printf 'WIRED='; getprop persist.vendor.setusbmode\nprintf 'LISTEN='; if netstat -lnt | grep -q ':5555 '; then echo true; else echo false; fi\n";header+="printf 'WIFI_ENABLED='; if iptables -C INPUT -p tcp --dport 5555 -j E02_WIFI_ADB 2>/dev/null; then active=$(iptables -S E02_WIFI_ADB | sed -n 's/.*-j \\(E02_ADB_[AB]\\).*/\\1/p' | head -n 1); if [ -n \"$active\" ] && iptables -S $active | grep -- '--dport 5555' | grep -q -- '-j ACCEPT'; then echo true; else echo false; fi; elif netstat -lnt | grep -q ':5555 '; then echo true; else echo false; fi\n";if(pc==null||pc.trim().isEmpty())return header+"echo WIRELESS=unknown\n";String r=rule(host,pc,net);return header+"printf 'WIRELESS='; if iptables -C INPUT -p tcp --dport 5555 -j E02_WIFI_ADB 2>/dev/null && { { iptables -C E02_WIFI_ADB -j E02_ADB_A 2>/dev/null && iptables -C E02_ADB_A "+r+" 2>/dev/null; } || { iptables -C E02_WIFI_ADB -j E02_ADB_B 2>/dev/null && iptables -C E02_ADB_B "+r+" 2>/dev/null; }; }; then echo true; elif iptables -C INPUT -i "+iface(net)+" -p tcp --dport 5555 -j E02_WIFI_ADB 2>/dev/null && iptables -C E02_WIFI_ADB "+r+" 2>/dev/null; then echo true; elif iptables -C INPUT "+r+" 2>/dev/null; then echo true; else echo false; fi\n";}
 }

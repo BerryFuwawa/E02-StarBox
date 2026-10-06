@@ -1,11 +1,16 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.e02.rootconsole" android:versionCode="7" android:versionName="1.5.1">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.e02.rootconsole" android:versionCode="10" android:versionName="1.7.0">
  <uses-sdk android:minSdkVersion="28" android:targetSdkVersion="28"/>
  <uses-permission android:name="android.permission.INTERNET"/>
+ <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
  <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
  <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW"/>
  <uses-permission android:name="android.permission.WAKE_LOCK"/>
- <application android:label="@string/app_name" android:icon="@drawable/ic_launcher" android:theme="@android:style/Theme.Material.Light.NoActionBar" android:allowBackup="false">
-  <activity android:name=".MainActivity" android:label="@string/app_name" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
+ <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
+ <application android:label="@string/app_name" android:icon="@drawable/ic_launcher" android:theme="@android:style/Theme.Material.NoActionBar" android:allowBackup="false">
+  <activity android:launchMode="singleTop" android:screenOrientation="landscape" android:configChanges="orientation|screenSize" android:name=".MainActivity" android:label="@string/app_name" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN"/><category android:name="android.intent.category.LAUNCHER"/></intent-filter></activity>
   <service android:name=".ConsoleService" android:exported="false" android:stopWithTask="false"/>
+ <service android:name=".RemoteService" android:exported="false"/>
+  <service android:name=".UpdateService" android:exported="false"/>
+  <provider android:name=".ApkProvider" android:authorities="com.e02.rootconsole.updates" android:exported="false" android:grantUriPermissions="true"/>
  </application>
 </manifest>
