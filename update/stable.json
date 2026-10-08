@@ -1,8 +1,8 @@
 {
-  "version": "1.7.0",
-  "versionCode": 10,
-  "apk": "https://github.com/BerryFuwawa/E02-StarBox/releases/download/v1.7.0/E02-Starbox-v1.7.0.apk",
-  "size": 11793644,
-  "sha256": "1fd6a4dc7abf80494ed4361010fd6213e20a7848fe1c69c759dd37706d83dede",
-  "notes": "简化连接状态、后台通知及错误提示，统一授权引导与按钮名称；保留必要技术名称和诊断详情。"
+  "version": "1.7.2",
+  "versionCode": 12,
+  "apk": "https://github.com/BerryFuwawa/E02-StarBox/releases/download/v1.7.2/E02-Starbox-v1.7.2.apk",
+  "sha256": "c5b949668ea0d5322d5dcf3b824fe09b604cfb9d56e1b56d6d940a62426f10e9",
+  "size": 11814291,
+  "notes": "更新圆角 E02 图标与长方形卡片资源；简化 Root 授权；修正 ADB 状态和远程服务准备。"
 }
