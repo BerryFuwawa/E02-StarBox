@@ -4,13 +4,13 @@
 
 **免费、开源，不对外出售，不收取软件使用费用。项目方未授权任何个人或机构销售本软件。**
 
-**当前公开版本 v1.7.2 / versionCode 12；本地修正版 v1.7.3 / versionCode 13 尚未发布。**
+**当前版本 v1.7.3 / versionCode 13。**
 
-v1.7.3 修复部分 Flyme Auto 上点击更新安装闪退，调整更新提示，并增加镜像站顺序测试。见 [本地更新说明](docs/1.7.3更新说明.md) 和 [验证记录](docs/1.7.3验证记录.md)。
+v1.7.3 修复部分 Flyme Auto 上点击更新安装闪退，调整更新提示，并增加镜像站顺序测试。见 [更新说明](docs/1.7.3更新说明.md) 和 [验证记录](docs/1.7.3验证记录.md)。
 
-[v1.7.2 验证记录](docs/1.7.2验证记录.md) · [更新说明](docs/1.7.2更新说明.md)
+[v1.7.3 验证记录](docs/1.7.3验证记录.md) · [更新说明](docs/1.7.3更新说明.md)
 
-[下载 v1.7.2 安装包](https://github.com/BerryFuwawa/E02-StarBox/releases/download/v1.7.2/E02-Starbox-v1.7.2.apk) · [使用指南](docs/使用指南.md) · [更新说明](docs/1.7.2更新说明.md)
+[下载 v1.7.3 安装包](https://github.com/BerryFuwawa/E02-StarBox/releases/download/v1.7.3/E02-Starbox-v1.7.3.apk) · [使用指南](docs/使用指南.md) · [更新说明](docs/1.7.3更新说明.md)
 
 ![连接页：ADB 状态、命令回传与 Root 授权](docs/images/1.7.1/root-top.png)
 

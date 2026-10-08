@@ -1,8 +1,8 @@
 {
-  "version": "1.7.2",
-  "versionCode": 12,
-  "apk": "https://github.com/BerryFuwawa/E02-StarBox/releases/download/v1.7.2/E02-Starbox-v1.7.2.apk",
-  "sha256": "c5b949668ea0d5322d5dcf3b824fe09b604cfb9d56e1b56d6d940a62426f10e9",
-  "size": 11814291,
-  "notes": "更新圆角 E02 图标与长方形卡片资源；简化 Root 授权；修正 ADB 状态和远程服务准备。"
+  "version": "1.7.3",
+  "versionCode": 13,
+  "apk": "https://github.com/BerryFuwawa/E02-StarBox/releases/download/v1.7.3/E02-Starbox-v1.7.3.apk",
+  "sha256": "e576144eeed4500493b97213e457e69ab76a22d194f5f121699a702971f1319d",
+  "size": 11822483,
+  "notes": "修复 Flyme Auto 更新安装闪退，确认后使用已有 Root 授权安装；简化右下角更新提示；增加镜像站顺序测试与保存确认。"
 }
