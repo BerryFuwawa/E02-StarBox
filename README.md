@@ -4,11 +4,11 @@
 
 **免费、开源，不对外出售，不收取软件使用费用。项目方未授权任何个人或机构销售本软件。**
 
-**v1.7.1 更新：Root 授权简化、连接状态修正和远程服务准备。发布完成后同步更新清单。**
+**v1.7.2：圆角 E02 图标与长方形卡片资源，并包含此前连接和授权修正。发布完成后同步更新清单。**
 
-[v1.7.1 修正与验证](docs/1.7.1验证记录.md) · [更新说明](docs/1.7.1更新说明.md)
+[v1.7.2 验证记录](docs/1.7.2验证记录.md) · [更新说明](docs/1.7.2更新说明.md)
 
-[下载 v1.7.1 安装包](https://github.com/BerryFuwawa/E02-StarBox/releases/download/v1.7.1/E02-Starbox-v1.7.1.apk) · [使用指南](docs/使用指南.md) · [更新说明](docs/1.7.1更新说明.md)
+[下载 v1.7.2 安装包](https://github.com/BerryFuwawa/E02-StarBox/releases/download/v1.7.2/E02-Starbox-v1.7.2.apk) · [使用指南](docs/使用指南.md) · [更新说明](docs/1.7.2更新说明.md)
 
 ![连接页：ADB 状态、命令回传与 Root 授权](docs/images/1.7.1/root-top.png)
 
