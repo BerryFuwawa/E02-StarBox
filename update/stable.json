@@ -4,5 +4,5 @@
   "apk": "https://github.com/BerryFuwawa/E02-StarBox/releases/download/v1.7.3/E02-Starbox-v1.7.3.apk",
   "sha256": "e576144eeed4500493b97213e457e69ab76a22d194f5f121699a702971f1319d",
   "size": 11822483,
-  "notes": "修复 Flyme Auto 更新安装闪退，确认后使用已有 Root 授权安装；简化右下角更新提示；增加镜像站顺序测试与保存确认。"
+  "notes": "修复部分 Flyme Auto 车机更新安装闪退，更新提醒更简洁，新增镜像站自动测试。软件内更新前请先完成 Root 授权。"
 }
