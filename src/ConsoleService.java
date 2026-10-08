@@ -14,13 +14,27 @@ public class ConsoleService extends Service {
  private WindowManager windows;private Badge badge;private WindowManager.LayoutParams layout;
  private PowerManager.WakeLock awake;private Handler handler=new Handler();private boolean capturing,stopping;
  public static boolean active(Context c){return RiskNotice.accepted(c)&&(c.getSharedPreferences("connection",0).getBoolean("appActive",false)||server!=null||RemoteService.running||UpdateService.downloading||c.getSharedPreferences("connection",0).getBoolean("adbManaged",false));}
- private final Runnable tick=new Runnable(){public void run(){if(!active(ConsoleService.this)){stopSelf();return;}refreshBadge();PhoneCompanion.refresh();AdbMaintenance.refresh(ConsoleService.this);handler.postDelayed(this,1500);}};
+ private final Runnable tick=new Runnable(){public void run(){if(!active(ConsoleService.this)){stopSelf();return;}refreshBadge();PhoneCompanion.refresh();refreshSessionNetwork();RootAccess.refresh(ConsoleService.this);AdbMaintenance.refresh(ConsoleService.this);handler.postDelayed(this,1500);}};
  public static synchronized void endSession(){ConsoleServer old=server;server=null;url="";pin="";root=false;if(old!=null)old.close();}
+ public static int webPort(){ConsoleServer current=server;return current==null?8875:current.port();}
+ public static synchronized ConsoleServer startSession(Context c,String lanHost,boolean allowRoot)throws java.io.IOException {
+  if(server!=null)return server;if(!RiskNotice.accepted(c))throw new java.io.IOException("请先阅读并同意使用提示");if(!c.getSharedPreferences("connection",0).getBoolean("appActive",false))throw new java.io.IOException("星匣已退出，请重新打开");
+  if(allowRoot&&!RootAccess.available())throw new java.io.IOException("Root 授权已失效，请重新授权");
+  java.io.ByteArrayOutputStream page=new java.io.ByteArrayOutputStream();try(java.io.InputStream in=c.getAssets().open("console.html")){byte[] b=new byte[4096];int n;while((n=in.read(b))!=-1)page.write(b,0,n);}
+  String code=String.format(java.util.Locale.US,"%04d",new java.security.SecureRandom().nextInt(10000));
+  ConsoleServer next=new ConsoleServer("127.0.0.1",8875,code,page.toByteArray(),allowRoot,RootAccess.runner(c));
+  error="";try{next.updateLan(lanHost);}catch(java.io.IOException e){error="局域网入口暂不可用，内网穿透仍可使用";lanHost="";}
+  pin=code;root=allowRoot;bridge=RootAccess.bridge();url="http://"+(lanHost==null||lanHost.isEmpty()?"127.0.0.1":lanHost)+":"+next.port()+"/";
+  if(RemoteService.running)next.setRemoteOrigin(c.getSharedPreferences("remote",0).getString("origin","http://127.0.0.1:8875"));
+  next.start();server=next;c.startForegroundService(new Intent(c,ConsoleService.class));return next;
+ }
+ public static String lanHost(Context c){java.util.List<NetworkState.Address> all=NetworkState.list();String iface=c.getSharedPreferences("connection",0).getString("consoleInterface","");for(NetworkState.Address a:all)if(a.iface.equals(iface))return a.ip;return all.isEmpty()?"":all.get(0).ip;}
+ private void refreshSessionNetwork(){ConsoleServer current=server;if(current==null)return;String host=lanHost(this);try{current.updateLan(host);url="http://"+(host.isEmpty()?"127.0.0.1":host)+":"+current.port()+"/";error=host.isEmpty()?"暂无局域网地址，可使用内网穿透访问":"";}catch(java.io.IOException e){error="局域网入口暂不可用，内网穿透仍可使用";}if(root&&!RootAccess.available()){current.disableRoot();root=false;}}
  public void onCreate(){super.onCreate();NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);nm.createNotificationChannel(new NotificationChannel("e02-session","E02星匣",NotificationManager.IMPORTANCE_LOW));
   PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class),PendingIntent.FLAG_UPDATE_CURRENT);
   PendingIntent stop=PendingIntent.getService(this,1,new Intent(this,ConsoleService.class).setAction("stop"),PendingIntent.FLAG_UPDATE_CURRENT);
   startForeground(20,new Notification.Builder(this,"e02-session").setSmallIcon(getApplicationInfo().icon).setContentTitle("E02星匣 · 服务运行中").setContentText("点击返回星匣；各服务在对应页面单独停止").setContentIntent(open).setOngoing(true).build());
-  if(!RiskNotice.accepted(this)){stopSelf();return;}
+  if(!active(this)){stopSelf();return;}
   awake=((PowerManager)getSystemService(POWER_SERVICE)).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK,"E02:ConsoleSession");awake.acquire();PhoneCompanion.start(this);windows=(WindowManager)getSystemService(WINDOW_SERVICE);handler.post(tick);
  }
  public int onStartCommand(Intent intent,int flags,int id){if(!RiskNotice.accepted(this)){stopSelf();return START_NOT_STICKY;}if(intent!=null&&"center".equals(intent.getAction())){android.util.DisplayMetrics m=new android.util.DisplayMetrics();windows.getDefaultDisplay().getMetrics(m);int x=Math.max(0,(m.widthPixels-dp(80))/2),y=Math.max(0,(m.heightPixels-dp(44))/2);getSharedPreferences("connection",0).edit().putInt("x",x).putInt("y",y).apply();if(layout!=null){layout.x=x;layout.y=y;if(badge!=null)try{windows.updateViewLayout(badge,layout);}catch(Exception ignored){}}}if(intent!=null&&"stop".equals(intent.getAction())){endSession();if(!active(this))stopSelf();return START_NOT_STICKY;}if(!active(this)){stopSelf();return START_NOT_STICKY;}refreshBadge();return START_NOT_STICKY;}

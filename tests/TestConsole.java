@@ -41,6 +41,9 @@ public class TestConsole {
    CommandRunner.Result timeout=runner.execute("Start-Sleep -Seconds 4",false,1);check(timeout.timedOut&&timeout.millis<4000,"bounded timeout");
    CommandRunner.Result large=runner.execute("[Console]::Out.Write(('x' * 160000)); [Console]::Error.Write(('e' * 160000))",false,10);check(large.truncated&&large.stdout.length()==CommandRunner.LIMIT&&large.stderr.length()==CommandRunner.LIMIT,"bounded concurrent stdout stderr");
    ExecutorService worker=Executors.newSingleThreadExecutor();Future<CommandRunner.Result> slow=worker.submit(()->runner.execute("Start-Sleep -Seconds 2",false,8));Thread.sleep(300);CommandRunner.Result overlap=runner.execute("Write-Output 'no'",false,2);check(!overlap.error.isEmpty(),"concurrent command rejected");slow.get();worker.shutdown();
+   server.updateLan("127.0.0.2");remote("127.0.0.2:"+server.port(),"http://127.0.0.2:"+server.port(),200);request("/api/status",token,null,null,200,"http://127.0.0.1:"+server.port());
+   server.updateLan("127.0.0.3");remote("127.0.0.2:"+server.port(),"http://127.0.0.2:"+server.port(),403);remote("127.0.0.3:"+server.port(),"http://127.0.0.3:"+server.port(),200);
+   server.updateLan("");remote("127.0.0.3:"+server.port(),"http://127.0.0.3:"+server.port(),403);request("/api/status",token,null,null,200,null);
    for(int i=0;i<5;i++)request("/api/status","9999",null,null,i==4?429:401,null);
    request("/api/status",token,null,null,429,null);
   }finally{server.close();}

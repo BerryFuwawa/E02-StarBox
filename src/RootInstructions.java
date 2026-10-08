@@ -15,7 +15,7 @@ public final class RootInstructions {
  public static void show(Context c){
   Dialog dialog=new Dialog(c);dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
   LinearLayout body=Design.column(c);body.setPadding(dp(c,30),dp(c,24),dp(c,30),dp(c,24));body.setBackground(Design.surface(c,Design.CARD,24));body.setClipToOutline(true);
-  TextView title=Design.text(c,"临时提权命令已复制",27);title.setGravity(Gravity.CENTER);body.addView(title);
+  TextView title=Design.text(c,"提权命令已复制",27);title.setGravity(Gravity.CENTER);body.addView(title);
   TextView subtitle=Design.text(c,"任选一种方式，完成后返回星匣检测 Root",20);subtitle.setGravity(Gravity.CENTER);body.addView(subtitle);
   LinearLayout columns=new LinearLayout(c);LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.topMargin=dp(c,18);body.addView(columns,cp);
   addColumn(columns,"EVCC",new String[]{"打开 EVCC → 终端。","粘贴到自定义命令【命令】输入框。","点击【Root 执行】。","返回 E02星匣，点击【重新检测 Root】。"});

@@ -1,52 +1,32 @@
 package com.e02.rootconsole;
 import android.app.*;
 import android.content.*;
+import android.net.*;
 import android.os.*;
 import java.io.*;
 import java.lang.Process;
-
-/** Owns exactly one unprivileged frpc child, stopped together with this service. */
+/** Exactly one unprivileged frpc child; the service owns reconnection. */
 public class RemoteService extends Service {
  public static volatile boolean running,connected;
  public static volatile String status="未启动",log="";
  private static volatile RemoteService owner;
- private final Object processLock=new Object();
- private volatile Process process;
- private volatile boolean stopping;
- public static void start(Context c){if(!RiskNotice.accepted(c))throw new IllegalStateException("请先阅读并同意使用提示");c.startForegroundService(new Intent(c,RemoteService.class));}
- public static void stop(Context c){status="已停止";c.stopService(new Intent(c,RemoteService.class));}
+ private final Object processLock=new Object();private volatile Process process;private volatile boolean stopping;
+ private long networkRevision;private String networkKey="";private ConnectivityManager manager;private ConnectivityManager.NetworkCallback callback;
+ public static void start(Context c){if(!c.getSharedPreferences("connection",0).getBoolean("appActive",false))throw new IllegalStateException("星匣已退出，请重新打开");if(!RiskNotice.accepted(c))throw new IllegalStateException("请先阅读并同意使用提示");c.startForegroundService(new Intent(c,RemoteService.class));}
+ public static void stop(Context c){RemoteService current=owner;if(current!=null)current.stopChild();status="已停止";c.stopService(new Intent(c,RemoteService.class));}
+ private void stopChild(){synchronized(processLock){stopping=true;if(process!=null)process.destroy();processLock.notifyAll();}}
  private void record(){if(owner!=this)return;try{File folder=new File(getFilesDir(),"frpc");folder.mkdirs();try(FileOutputStream out=new FileOutputStream(new File(folder,"runtime.log"))){out.write((status+"\n"+log).getBytes("UTF-8"));}}catch(IOException ignored){}}
- private synchronized void append(String s){if(owner!=this)return;String clean=s.replaceAll("\u001B\\[[;\\d]*m","");log+=clean+"\n";if(log.length()>16000)log=log.substring(log.length()-16000);if(clean.contains("login to server success")){connected=true;status="已连接服务器，网页和 ADB 是否可用请查看日志";}if(clean.contains("connect to server error")||clean.contains("connection closed")||clean.contains("heartbeat timeout")){connected=false;status="正在重连，请查看日志";}record();}
+ private synchronized void append(String s){if(owner!=this||stopping)return;String clean=s.replaceAll("\u001B\\[[;\\d]*m","");log+=clean+"\n";if(log.length()>16000)log=log.substring(log.length()-16000);if(clean.contains("login to server success")){connected=true;status="已连接服务器，通道是否可用请查看日志";}if(clean.contains("connect to server error")||clean.contains("connection closed")||clean.contains("heartbeat timeout")){connected=false;status="正在重连，请查看日志";}record();}
  public void onCreate(){super.onCreate();owner=this;NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);nm.createNotificationChannel(new NotificationChannel("starbox-remote","星匣远程连接",NotificationManager.IMPORTANCE_LOW));startForeground(22,new Notification.Builder(this,"starbox-remote").setSmallIcon(getApplicationInfo().icon).setContentTitle("E02星匣 · 远程").setContentText("远程连接正在运行，点击查看日志").setOngoing(true).setContentIntent(PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class),PendingIntent.FLAG_UPDATE_CURRENT)).addAction(0,"停止远程",PendingIntent.getService(this,0,new Intent(this,RemoteService.class).setAction("stop"),PendingIntent.FLAG_UPDATE_CURRENT)).build());}
- private Process launch(File executable,File folder,String... args)throws IOException{synchronized(processLock){if(stopping)throw new IOException("已停止");java.util.List<String> command=new java.util.ArrayList<>();command.add(executable.getAbsolutePath());java.util.Collections.addAll(command,args);process=new ProcessBuilder(command).directory(folder).redirectErrorStream(true).start();return process;}}
- public int onStartCommand(Intent intent,int flags,int id){
-  if(!RiskNotice.accepted(this)){stopSelf();return START_NOT_STICKY;}
-  if(intent!=null&&"stop".equals(intent.getAction())){status="已停止";stopSelf();return START_NOT_STICKY;}
-  if(running)return START_NOT_STICKY;
-  running=true;connected=false;stopping=false;status="正在检查配置并启动远程连接…";log="";
-  startForegroundService(new Intent(this,ConsoleService.class));
-  new Thread(()->{
-   try{
-    String config=getSharedPreferences("remote",0).getString("config","");if(config.trim().isEmpty())throw new IOException("请先保存远程配置");
-    File folder=new File(getFilesDir(),"frpc");if(!folder.exists()&&!folder.mkdirs())throw new IOException("无法创建远程连接所需目录");
-    String arch=null;for(String abi:Build.SUPPORTED_ABIS){if(abi.equals("arm64-v8a")){arch="arm64";break;}if(abi.startsWith("armeabi"))arch="arm";}
-    if(arch==null)throw new IOException("当前设备不支持内置远程连接组件");
-    File executable=new File(folder,"frpc");
-    try(InputStream in=getAssets().open("frpc/"+arch+"/frpc");FileOutputStream out=new FileOutputStream(executable)){byte[] b=new byte[65536];int n;while((n=in.read(b))!=-1){if(stopping)return;out.write(b,0,n);}}
-    if(!executable.setExecutable(true,true))throw new IOException("无法启动远程连接组件，请检查应用权限");
-    String type=getSharedPreferences("remote",0).getString("format","toml");if(!type.matches("toml|yaml|json"))throw new IOException("配置格式不支持");
-    config=RemoteDns.adapt(this,config,type);
-    File file=new File(folder,"frpc."+type);try(FileOutputStream out=new FileOutputStream(file)){out.write(config.getBytes("UTF-8"));}
-    Process verifier=launch(executable,folder,"verify","-c",file.getAbsolutePath());read(verifier);if(verifier.waitFor()!=0)throw new IOException("远程配置检查失败，详情见日志");
-    if(stopping)return;
-    status="远程连接已启动，正在连接服务器…";record();
-    if(ConsoleService.server!=null)ConsoleService.server.setRemoteOrigin(getSharedPreferences("remote",0).getString("origin","http://127.0.0.1:8875"));
-    Process client=launch(executable,folder,"-c",file.getAbsolutePath());read(client);int code=client.waitFor();if(!stopping&&owner==this)status="远程连接已停止，错误代码 "+code+"，请查看日志";
-   }catch(Exception e){if(!stopping&&owner==this){log+="\n"+e.getClass().getSimpleName()+": "+e.getMessage();status="远程启动失败："+UserMessages.explain(e);}}
-   finally{if(owner==this){running=false;connected=false;record();if(ConsoleService.server!=null)ConsoleService.server.setRemoteAuthority(null);}stopForeground(true);stopSelf();}
-  },"starbox-frpc").start();return START_NOT_STICKY;
- }
+ private String defaultNetworkKey(){if(manager==null)return "none";Network n=manager.getActiveNetwork();LinkProperties p=n==null?null:manager.getLinkProperties(n);return String.valueOf(n)+"|"+(p==null?"":p.getDnsServers().toString()+p.getInterfaceName());}
+ private void networkChanged(){String key=defaultNetworkKey();synchronized(processLock){if(stopping||key.equals(networkKey))return;networkKey=key;networkRevision++;connected=false;status="网络已变化，正在重新连接…";if(process!=null)process.destroy();processLock.notifyAll();}}
+ private Process launch(File executable,File folder,long revision,String... args)throws IOException{synchronized(processLock){if(stopping||revision!=networkRevision)throw new IOException("网络已变化");java.util.List<String> command=new java.util.ArrayList<>();command.add(executable.getAbsolutePath());java.util.Collections.addAll(command,args);process=new ProcessBuilder(command).directory(folder).redirectErrorStream(true).start();return process;}}
+ public int onStartCommand(Intent intent,int flags,int id){if(!RiskNotice.accepted(this)||!getSharedPreferences("connection",0).getBoolean("appActive",false)){stopSelf();return START_NOT_STICKY;}if(intent!=null&&"stop".equals(intent.getAction())){stopChild();status="已停止";stopSelf();return START_NOT_STICKY;}if(running)return START_NOT_STICKY;running=true;connected=false;stopping=false;status="正在检查配置并启动远程连接…";log="";startForegroundService(new Intent(this,ConsoleService.class));manager=(ConnectivityManager)getSystemService(CONNECTIVITY_SERVICE);networkKey=defaultNetworkKey();callback=new ConnectivityManager.NetworkCallback(){public void onAvailable(Network n){networkChanged();}public void onLost(Network n){networkChanged();}public void onLinkPropertiesChanged(Network n,LinkProperties p){networkChanged();}};try{if(manager!=null)manager.registerDefaultNetworkCallback(callback);}catch(RuntimeException e){callback=null;log="网络变化检测暂不可用，连接仍会尝试重连\n";}
+  new Thread(this::runClient,"starbox-frpc").start();return START_NOT_STICKY;}
+ private void runClient(){try{String original=getSharedPreferences("remote",0).getString("config","");if(original.trim().isEmpty())throw new IOException("请先保存远程配置");File folder=new File(getFilesDir(),"frpc");if(!folder.exists()&&!folder.mkdirs())throw new IOException("无法创建远程连接所需目录");String arch=null;for(String abi:Build.SUPPORTED_ABIS){if(abi.equals("arm64-v8a")){arch="arm64";break;}if(abi.startsWith("armeabi"))arch="arm";}if(arch==null)throw new IOException("当前设备不支持内置远程连接组件");File executable=new File(folder,"frpc");try(InputStream in=getAssets().open("frpc/"+arch+"/frpc");FileOutputStream out=new FileOutputStream(executable)){byte[] b=new byte[65536];int n;while((n=in.read(b))!=-1){if(stopping)return;out.write(b,0,n);}}if(!executable.setExecutable(true,true))throw new IOException("无法启动远程连接组件，请检查应用权限");String type=getSharedPreferences("remote",0).getString("format","toml");if(!type.matches("toml|yaml|json"))throw new IOException("配置格式不支持");File file=new File(folder,"frpc."+type);
+   while(!stopping){long revision;synchronized(processLock){revision=networkRevision;}try{String config=RemoteDns.adapt(this,original,type);try(FileOutputStream out=new FileOutputStream(file)){out.write(config.getBytes("UTF-8"));}Process verifier=launch(executable,folder,revision,"verify","-c",file.getAbsolutePath());read(verifier);int verified=verifier.waitFor();synchronized(processLock){if(stopping)return;if(revision!=networkRevision)continue;}if(verified!=0)throw new IOException("远程配置检查失败，详情见日志");status="远程连接已启动，正在连接服务器…";record();if(ConsoleService.server!=null)ConsoleService.server.setRemoteOrigin(getSharedPreferences("remote",0).getString("origin","http://127.0.0.1:8875"));Process client=launch(executable,folder,revision,"-c",file.getAbsolutePath());read(client);int code=client.waitFor();synchronized(processLock){if(stopping)return;if(revision!=networkRevision)continue;}throw new IOException("远程连接已停止，错误代码 "+code+"，请查看日志");}catch(IOException e){synchronized(processLock){if(stopping)return;if(revision!=networkRevision)continue;}throw e;}}
+  }catch(Exception e){if(!stopping&&owner==this){status="远程启动失败："+UserMessages.explain(e);log+="\n"+UserMessages.explain(e);}}finally{if(owner==this){running=false;connected=false;record();if(ConsoleService.server!=null)ConsoleService.server.setRemoteAuthority(null);stopSelf();}}}
  private void read(Process p)throws IOException{try(BufferedReader reader=new BufferedReader(new InputStreamReader(p.getInputStream(),"UTF-8"))){String line;while((line=reader.readLine())!=null)append(line);}}
- public void onDestroy(){synchronized(processLock){stopping=true;if(process!=null)process.destroy();}if(owner==this){running=false;connected=false;record();if(ConsoleService.server!=null)ConsoleService.server.setRemoteAuthority(null);}super.onDestroy();}
+ public void onDestroy(){stopChild();if(manager!=null&&callback!=null)try{manager.unregisterNetworkCallback(callback);}catch(RuntimeException ignored){}if(owner==this){running=false;connected=false;if(ConsoleService.server!=null)ConsoleService.server.setRemoteAuthority(null);owner=null;}super.onDestroy();}
  public IBinder onBind(Intent intent){return null;}
 }

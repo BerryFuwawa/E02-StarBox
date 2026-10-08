@@ -15,8 +15,9 @@ subprocess.run([str(java),'-Dsun.net.http.allowRestrictedHeaders=true','-cp',str
 subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(source/'UserMessages.java'),str(source/'BridgeRunner.java'),str(root/'tests/TestBridge.java'),str(root/'tests/TestUserMessages.java')],check=True)
 subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestUserMessages'],check=True)
 subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestBridge'],check=True)
-subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-d',str(classes),str(source/'BridgeLifetime.java'),str(root/'tests/TestLifetime.java')],check=True)
-subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestLifetime'],check=True)
+subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-d',str(classes),str(source/'RootState.java'),str(source/'RootLaunch.java'),str(source/'AdbStatus.java'),str(source/'LocalAdb.java'),str(root/'tests/TestAuthorization.java'),str(root/'tests/TestAdbStatus.java'),str(root/'tests/TestAdbHandshake.java')],check=True)
+for name in ['TestAuthorization','TestAdbStatus','TestAdbHandshake']:
+    subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.'+name],check=True)
 subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-d',str(classes),str(source/'AdbControl.java'),str(root/'tests/TestAdbControl.java')],check=True)
 subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestAdbControl'],check=True)
 subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(root/'tests/TestLocalAdb.java')],check=True)
