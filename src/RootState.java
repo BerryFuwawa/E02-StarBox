@@ -3,6 +3,7 @@ package com.e02.rootconsole;
 public final class RootState {
  private long generation;private boolean available,bridge=true;
  public synchronized long begin(){return ++generation;}
+ public synchronized boolean current(long ticket){return ticket==generation;}
  public synchronized boolean publish(long ticket,boolean valid,boolean viaBridge){if(ticket!=generation)return false;available=valid;bridge=viaBridge;return true;}
  public synchronized void clear(){generation++;available=false;bridge=true;}
  public synchronized boolean available(){return available;}

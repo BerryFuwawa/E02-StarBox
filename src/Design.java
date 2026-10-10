@@ -8,6 +8,7 @@ import android.widget.*;
 /** Solid native surfaces: no blur, web rendering, or animation loops. */
 public final class Design {
  public static final int BG=0xff14181e,CARD=0xff202630,LINE=0xff354050,TEXT=0xffe8edf4,MUTED=0xffa5b2c4,ACCENT=0xffa8d2e9,DANGER=0xffbb394d;
+ public static final int YELLOW=0xffd3c18f;
  public static final int GREEN=0xff86b89b,RED=0xffd58b93,GREEN_BUTTON=0xff527966,RED_BUTTON=0xff985760;
  public static void actionColor(Button b,boolean start){b.setBackground(surface(b.getContext(),start?GREEN_BUTTON:RED_BUTTON,12));b.setTextColor(TEXT);}
  public static class StatusText extends TextView {

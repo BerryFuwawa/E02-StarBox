@@ -32,7 +32,7 @@ public class CommandRunner {
   Process process=null;
   try {
    // The entire input is one -c argument, including multiline commands.
-   process=new ProcessBuilder(root?su:shell,"-c",command).start();
+   process=start(command,root);
    current=process;
    if(closed){terminate(process);throw new IOException("命令连接已关闭");}
    process.getOutputStream().close();
@@ -44,10 +44,14 @@ public class CommandRunner {
    result.stdout=stdout.text();result.stderr=stderr.text();result.truncated=stdout.clipped()||stderr.clipped();
    if(out.isAlive()||err.isAlive()){result.truncated=true;result.error="命令仍有输出；请勿运行后台任务或需要继续输入的程序";}
   } catch(Exception e){result.error=e.getClass().getSimpleName()+": "+String.valueOf(e.getMessage());}
-  finally{if(process!=null){if(process.isAlive())terminate(process);try{process.getInputStream().close();}catch(Exception e){}try{process.getErrorStream().close();}catch(Exception e){}}current=null;busy.set(false);result.millis=(System.nanoTime()-start)/1000000;}
+  finally{if(process!=null){try{finish(process,result);}catch(Exception e){result.error="命令清理未完成："+e.getClass().getSimpleName();}try{process.getInputStream().close();}catch(Exception e){}try{process.getErrorStream().close();}catch(Exception e){}}current=null;busy.set(false);result.millis=(System.nanoTime()-start)/1000000;}
   return result;
  }
- private static void terminate(Process p){p.destroy();try{if(!p.waitFor(300,TimeUnit.MILLISECONDS))p.destroyForcibly();}catch(InterruptedException e){Thread.currentThread().interrupt();p.destroyForcibly();}}
+ protected Process start(String command,boolean root)throws IOException{return new ProcessBuilder(root?su:shell,"-c",command).start();}
+ protected final boolean isClosed(){return closed;}
+ boolean cleanupComplete(){return true;}
+ protected void finish(Process p,Result result){if(p.isAlive())terminate(p);}
+ protected void terminate(Process p){p.destroy();try{if(!p.waitFor(300,TimeUnit.MILLISECONDS))p.destroyForcibly();}catch(InterruptedException e){Thread.currentThread().interrupt();p.destroyForcibly();}}
  public void close(){closed=true;Process p=current;if(p!=null)terminate(p);}
  public static String quote(String s){StringBuilder b=new StringBuilder("\"");for(int i=0;i<s.length();i++){char c=s.charAt(i);switch(c){case '"':b.append("\\\"");break;case '\\':b.append("\\\\");break;case '\n':b.append("\\n");break;case '\r':b.append("\\r");break;case '\t':b.append("\\t");break;default:if(c<32)b.append(String.format("\\u%04x",(int)c));else b.append(c);}}return b.append('"').toString();}
 }
