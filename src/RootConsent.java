@@ -19,7 +19,7 @@ final class RootConsent {
         body.addView(Design.text(activity,"结束提权后不会自动重新获取，需要再次确认启用。退出程序及后台会停止当前服务。请仅在安全驻车时启用。",19));
         LinearLayout actions=new LinearLayout(activity);body.addView(actions);
         Button cancel=Design.button(activity,"取消",dialog::dismiss),confirm=Design.button(activity,"启用",()->{dialog.dismiss();enable.run();});
-        confirm.setBackgroundTintList(null);confirm.setBackground(Design.surface(activity,Design.ACCENT,12));confirm.setTextColor(Design.BG);
+        confirm.setBackgroundTintList(null);confirm.setBackground(Design.feedback(activity,Design.ACCENT,12));confirm.setTextColor(Design.BG);
         for(Button button:new Button[]{cancel,confirm}) {LinearLayout.LayoutParams params=new LinearLayout.LayoutParams(0,Design.dp(activity,58),1);params.topMargin=Design.dp(activity,18);if(actions.getChildCount()>0)params.leftMargin=Design.dp(activity,18);actions.addView(button,params);}
         dialog.setContentView(body);Window window=dialog.getWindow();window.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
         WindowManager.LayoutParams attributes=window.getAttributes();attributes.dimAmount=.58f;window.setAttributes(attributes);

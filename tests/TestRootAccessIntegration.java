@@ -52,13 +52,21 @@ public final class TestRootAccessIntegration {
             check(!RootAccess.available()&&RootAccess.needsConsent(),"real adapter separates Root backend from owned service");
             check(RootPermit.active(directory.toFile())==null&&!RuntimeSettings.snapshot(app).rootAllowed,"first check grants neither consent nor lease");
             RootPermit.Ticket lease=RootPermit.grant(directory.toFile());CommandRunner childRunner=new CommandRunner(shell,shell);
-            service=new RootBridgeServer(SECRET,0,12345,lease.nonce,childRunner,()->RootPermit.matches(lease));
+            AtomicReference<String> wakeStatus=new AtomicReference<>("unavailable");
+            service=new RootBridgeServer(SECRET,0,12345,lease.nonce,childRunner,()->RootPermit.matches(lease),null,null,wakeStatus::get);
             RootBridgeServer instance=service;AtomicReference<Throwable> failure=new AtomicReference<>();
             serviceThread=new Thread(()->{try{instance.serve(8876);}catch(Throwable error){failure.set(error);}},"fixture-owned-root");serviceThread.start();
             long deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(3);boolean ready=false;
             while(System.nanoTime()<deadline){try{BridgeRunner.identity(SECRET,lease.nonce);ready=true;break;}catch(IOException waiting){Thread.sleep(15);}}
             check(ready,"fixture HMAC service listening");RootAccess.check(app,false);
             check(RootAccess.available()&&!RootAccess.needsConsent(),"production adapter accepts only matching owned identity");
+            check(RuntimeSettings.approveRoot(app),"fixture approves previously established owned Root");
+            check(RootAccess.prepareWake(app).exit==0&&RootAccess.prepareWake(app).error.isEmpty(),"stable release does not register or upgrade a wake observer");
+            check(RootPermit.matches(lease)&&RootAccess.available(),"observer failure preserves Root lease and ordinary commands");
+            wakeStatus.set("registered");
+            check(RootAccess.prepareWake(app).exit==0,"authenticated observer readiness accepted");
+            check(RootPermit.matches(lease),"ready observer does not rotate permission");
+            try{BridgeRunner.wakeStatus("ffffffffffffffffffffffffffffffff");throw new AssertionError("wake status disclosed to wrong credential");}catch(IOException expected){checks++;}
             String source=app.info.sourceDir;app.info.sourceDir="/data/app/com.e02.rootconsole-fixture/base.apk";
             CommandRunner updater=RootAccess.updateRunner(app,"recover");try{check(updater.execute("not a shell command",true,1).error.contains("不支持更新"),"actual update adapter uses fixed update protocol and rejects missing capability");}finally{updater.close();app.info.sourceDir=source;}
             check(!RootAccess.busy()&&RootAccess.available(),"failed update capability check releases actual registry without revoking Root");

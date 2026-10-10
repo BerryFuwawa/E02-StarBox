@@ -20,14 +20,14 @@ final class RuntimeRecovery {
     static synchronized void request(Context context) {
         Context app=context.getApplicationContext();
         RuntimePolicy.Snapshot state=RuntimeSettings.snapshot(app);
-        if(!RecoveryPolicy.restoreChannels(state,RiskNotice.accepted(app),RuntimeSettings.healthy(app)))return;
+        if(!RecoveryPolicy.restoreChannels(state,RiskNotice.accepted(app),RuntimeSettings.healthy(app),RuntimeSettings.wakeRecovery(app)))return;
         if(running){pending=true;return;}
         if(scheduled)return;
         long ticket=generation;running=true;
         new Thread(()->run(app,ticket),"starbox-service-recovery").start();
     }
     private static synchronized boolean current(Context app,long ticket) {
-        return ticket==generation&&RuntimeSettings.runningAllowed(app)&&RecoveryPolicy.restoreChannels(RuntimeSettings.snapshot(app),true,RuntimeSettings.healthy(app));
+        return ticket==generation&&RuntimeSettings.runningAllowed(app)&&RecoveryPolicy.restoreChannels(RuntimeSettings.snapshot(app),true,RuntimeSettings.healthy(app),RuntimeSettings.wakeRecovery(app));
     }
     private static void run(Context app,long ticket) {
         boolean complete=false;
@@ -35,7 +35,7 @@ final class RuntimeRecovery {
             RecoveryFlow.Result result=RecoveryFlow.restore(new RecoveryFlow.Driver(){
                 public boolean current(){return RuntimeRecovery.current(app,ticket);}
                 public boolean rootBusy(){return RootAccess.busy();}
-                public void checkRoot(){RootAccess.check(app,false);}
+                public void checkRoot(){RootAccess.check(app,false);if(RootAccess.available()&&(RuntimeSettings.snapshot(app).autoStart||RuntimeSettings.wakeRecovery(app)))RootAccess.prepareWake(app);}
                 public boolean rootNeeded(){try{return RuntimeSettings.automaticRootAllowed(app)&&!RootPermit.userEnded(app.getFilesDir());}catch(java.io.IOException invalid){return false;}}
                 public boolean rootAvailable(){return RootAccess.available();}
                 public boolean restoreWeb()throws Exception{return ConsoleService.restoreSession(app);}

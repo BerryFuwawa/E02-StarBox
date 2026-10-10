@@ -7,12 +7,12 @@ public final class TestRecoveryPolicy {
         for(int bits=0;bits<8;bits++){
             boolean keep=(bits&1)!=0,boot=(bits&2)!=0,park=(bits&4)!=0;
             RuntimePolicy.Snapshot live=new RuntimePolicy.Snapshot(true,keep,boot,park,false,true,0);
-            check(RecoveryPolicy.background(live)==keep);
-            check(RecoveryPolicy.serviceWanted(live,false)==keep);
+            check(RecoveryPolicy.background(live)==(keep||boot));
+            check(RecoveryPolicy.serviceWanted(live,false)==(keep||boot));
             check(RecoveryPolicy.serviceWanted(live,true));
             check(RecoveryPolicy.start(live,true,true,RecoveryPolicy.Event.COLD_START)==boot);
-            check(RecoveryPolicy.start(live,true,true,RecoveryPolicy.Event.SERVICE_RESTART)==keep);
-            check(!RecoveryPolicy.start(live,true,true,RecoveryPolicy.Event.WAKE));
+            check(RecoveryPolicy.start(live,true,true,RecoveryPolicy.Event.SERVICE_RESTART)==(keep||boot));
+            check(RecoveryPolicy.start(live,true,true,RecoveryPolicy.Event.WAKE)==boot);
             check(RecoveryPolicy.start(live,true,true,RecoveryPolicy.Event.REPLACED)==(keep||boot));
             check(RecoveryPolicy.restoreChannels(live,true,true)==(keep||boot));
             for(RecoveryPolicy.Event event:RecoveryPolicy.Event.values()){

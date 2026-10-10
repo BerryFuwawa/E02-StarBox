@@ -75,7 +75,7 @@ def main():
             run(executable(java,'keytool'),'-genkeypair','-keystore',key,'-storepass',password,'-alias',alias,'-keyalg','RSA','-keysize','2048','-validity','3650','-dname','CN=Galaxy E02 Tools Development','-storetype','PKCS12')
     dist = ROOT/'dist'
     dist.mkdir(exist_ok=True)
-    apk = Path(args.output).resolve() if args.output else dist/'E02-Starbox-v1.7.4.apk'
+    apk = Path(args.output).resolve() if args.output else dist/'E02-Starbox-v1.7.5-recovery.apk'
     apk.parent.mkdir(parents=True,exist_ok=True)
     run(executable(java,'java'),'-jar',tools/'lib/apksigner.jar','sign','--ks',key,'--ks-pass',password_arg,'--ks-key-alias',alias,'--min-sdk-version','28','--v4-signing-enabled','false','--out',apk,aligned)
     run(executable(java,'java'),'-jar',tools/'lib/apksigner.jar','verify','--verbose',apk)

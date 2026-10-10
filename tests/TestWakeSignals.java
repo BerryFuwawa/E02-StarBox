@@ -19,13 +19,13 @@ public final class TestWakeSignals {
             String saved=before.encode();
             for(String event:WakeSignals.registeredActions()){
                 boolean actual=WakeSignals.observed(event)&&RecoveryPolicy.start(before,true,true,RecoveryPolicy.Event.WAKE);
-                check(!actual);
+                check(actual==before.autoStart);
                 check(StartupReceiver.event(event)==null);
                 check(before.encode().equals(saved));
             }
             check(!RecoveryPolicy.start(before,false,true,RecoveryPolicy.Event.WAKE));
             check(!RecoveryPolicy.start(before,true,false,RecoveryPolicy.Event.WAKE));
         }
-        System.out.println("PASS "+checks+" dormant wake-event checks: names retained as research clues, none trigger startup or recovery for any saved option; no vehicle power or Android delivery.");
+        System.out.println("PASS "+checks+" wake-event policy checks: opted-in recovery only, REGISTERED_ONLY absent from manifest startup, settings unchanged; no vehicle power or Android delivery.");
     }
 }

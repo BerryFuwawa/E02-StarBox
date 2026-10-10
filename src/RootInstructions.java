@@ -21,7 +21,7 @@ public final class RootInstructions {
   addColumn(columns,"EVCC",new String[]{"打开 EVCC → 终端。","粘贴到自定义命令【命令】输入框。","点击【Root 执行】。","返回 E02星匣，点击【重新检测 Root】。"});
   addColumn(columns,"应用管家",new String[]{"打开应用管家 → 执行命令。","点击【粘贴】，将命令填入输入框。","点击【本机执行】。","返回 E02星匣，点击【重新检测 Root】。"});
   TextView hint=Design.text(c,"授权工具需已具有 Root 权限；复制命令不会自动完成提权。",18);hint.setGravity(Gravity.CENTER);LinearLayout.LayoutParams hp=new LinearLayout.LayoutParams(-1,-2);hp.topMargin=dp(c,14);body.addView(hint,hp);
-  Button understood=Design.button(c,"明白",dialog::dismiss);understood.setTextSize(22);understood.setTextColor(Design.BG);understood.setBackground(Design.surface(c,Design.ACCENT,12));
+  Button understood=Design.button(c,"明白",dialog::dismiss);understood.setTextSize(22);understood.setTextColor(Design.BG);understood.setBackground(Design.feedback(c,Design.ACCENT,12));
   LinearLayout.LayoutParams bp=new LinearLayout.LayoutParams(dp(c,240),dp(c,58));bp.gravity=Gravity.CENTER_HORIZONTAL;bp.topMargin=dp(c,16);body.addView(understood,bp);
   dialog.setContentView(body);Window w=dialog.getWindow();w.setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));w.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);WindowManager.LayoutParams attrs=w.getAttributes();attrs.dimAmount=.58f;w.setAttributes(attrs);
   dialog.show();w.setLayout(Math.min(dp(c,1240),(int)(c.getResources().getDisplayMetrics().widthPixels*.88)),-2);

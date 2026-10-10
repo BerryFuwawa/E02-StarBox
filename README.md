@@ -4,13 +4,13 @@
 
 **免费、开源，不对外出售，不收取软件使用费用。项目方未授权任何个人或机构销售本软件。**
 
-**当前版本：v1.7.4**
+**当前版本：v1.7.5**
 
-新增打开软件时自动连接内网穿透，后台功能集中到独立页面；优化配置选择，修复车机缺少文件选择器时的导入闪退。
+修正无线 ADB 的状态与开关反馈，操作按钮增加按压与执行进度提示，异常网络提示更加清楚。暂不提供熄火后远程保活。
 
-[下载 v1.7.4 安装包](https://github.com/BerryFuwawa/E02-StarBox/releases/download/v1.7.4/E02-Starbox-v1.7.4.apk) · [使用指南](docs/使用指南.md) · [更新说明](docs/1.7.4更新说明.md)
+[下载 v1.7.5 安装包](https://github.com/BerryFuwawa/E02-StarBox/releases/download/v1.7.5/E02-Starbox-v1.7.5.apk) · [使用指南](docs/使用指南.md) · [更新说明](docs/1.7.5更新说明.md)
 
-![后台页：后台保活、状态栏、悬浮窗和开机自启](docs/images/1.7.4/background.png)
+![后台页：后台保活、状态栏、悬浮窗和开机自启](docs/images/1.7.5/background.png)
 
 ## 第一次使用
 

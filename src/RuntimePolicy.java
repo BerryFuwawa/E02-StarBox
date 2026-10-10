@@ -87,17 +87,19 @@ public final class RuntimePolicy {
             return decision(Effect.CANCEL_RETRIES,Effect.RELEASE_PARKED_REMOTE,Effect.SAVE_ERROR);
         return decision(Effect.CANCEL_RETRIES,Effect.RELEASE_PARKED_REMOTE);
     }
-    public synchronized Decision exitByUser() {
-        if(ExitPolicy.blocked(state.keepAlive,state.autoStart,state.parkedRemote))return decision(Effect.EXIT_BLOCKED);
+    public synchronized Decision exitByUser() { return exitByUser(false); }
+    public synchronized Decision exitByUser(boolean wakeRecovery) {
+        if(ExitPolicy.blocked(state.keepAlive,state.autoStart,state.parkedRemote,wakeRecovery))return decision(Effect.EXIT_BLOCKED);
         // Invalidate callbacks first; persist the exit gate before stopping anything.
         invalidate();active=false;suspended=false;root=Root.UNKNOWN;ownedPid=0;retries=0;
         boolean saved=save(next(state.accepted,state.keepAlive,state.autoStart,state.parkedRemote,true,state.rootAllowed));
         return saved?decision(Effect.STOP_ALL_OWNED,Effect.CANCEL_RETRIES,Effect.RELEASE_PARKED_REMOTE):
             decision(Effect.STOP_ALL_OWNED,Effect.CANCEL_RETRIES,Effect.RELEASE_PARKED_REMOTE,Effect.SAVE_ERROR);
     }
-    public synchronized Decision bootOrWake() {
+    public synchronized Decision bootOrWake() { return bootOrWake(false); }
+    public synchronized Decision bootOrWake(boolean wakeRecovery) {
         invalidate();root=Root.UNKNOWN;ownedPid=0;retries=0;active=false;suspended=false;
-        if(!storageHealthy||!state.accepted||state.exited||!state.autoStart)return decision(Effect.NONE);
+        if(!storageHealthy||!state.accepted||state.exited||(!state.autoStart&&!wakeRecovery))return decision(Effect.NONE);
         active=true;return decision(Effect.CHECK_IDENTITY);
     }
     /** A genuine startup event may resume after an earlier user exit; wake/replacement may not. */
@@ -109,9 +111,10 @@ public final class RuntimePolicy {
     }
     /** Android may recreate an already-running sticky service after process loss.
      * This never changes an option or clears an explicit exit gate. */
-    public synchronized Decision restoreExistingService() {
+    public synchronized Decision restoreExistingService() { return restoreExistingService(false); }
+    public synchronized Decision restoreExistingService(boolean wakeRecovery) {
         invalidate();root=Root.UNKNOWN;ownedPid=0;retries=0;active=false;suspended=false;
-        if(!storageHealthy||!state.accepted||state.exited||!backgroundRecoveryWanted())return decision(Effect.NONE);
+        if(!storageHealthy||!state.accepted||state.exited||(!backgroundRecoveryWanted()&&!wakeRecovery))return decision(Effect.NONE);
         active=true;return decision(Effect.CHECK_IDENTITY);
     }
     public synchronized Decision suspend() {
@@ -129,7 +132,7 @@ public final class RuntimePolicy {
         if(retries>=3)return decision(Effect.WAIT_USER);
         retries++;return new Decision(generation,new int[]{1,5,15}[retries-1],Effect.RETRY_IDENTITY);
     }
-    private boolean backgroundRecoveryWanted() { return state.keepAlive; }
+    private boolean backgroundRecoveryWanted() { return state.keepAlive||state.autoStart; }
     public synchronized boolean retryMayRun(long ticket) { return current(ticket)&&backgroundRecoveryWanted(); }
     public synchronized Decision rootConsentByUser() {
         if(!runningAllowed())return decision(Effect.WAIT_USER);

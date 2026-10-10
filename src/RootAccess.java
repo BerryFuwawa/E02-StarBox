@@ -44,6 +44,15 @@ public final class RootAccess {
         }
         try {return check(context,true,true);}finally{synchronized(RootAccess.class){authorizing=false;}}
     }
+    static CommandRunner.Result prepareWake(Context context) {
+        if(!WakeRecoveryOptions.available()){CommandRunner.Result disabled=new CommandRunner.Result();disabled.exit=0;return disabled;}
+        if(!RuntimeSettings.automaticRootAllowed(context))return failure("请先启用独立 Root 授权");
+        if(busy())return failure("正在处理授权，请稍后重新检测 Root");
+        try{if("registered".equals(BridgeRunner.wakeStatus(secret))){CommandRunner.Result ready=new CommandRunner.Result();ready.exit=0;return ready;}return failure("唤醒恢复暂不可用，请查看诊断结果");}catch(IOException unsupported){}
+        CommandRunner.Result result=enableIndependent(context);
+        if(result.exit==0)try{if(!"registered".equals(BridgeRunner.wakeStatus(secret)))result.error="唤醒恢复暂不可用，请查看诊断结果";}catch(IOException unavailable){result.error="唤醒恢复暂不可用，请查看诊断结果";}
+        return result;
+    }
     private static CommandRunner.Result check(Context context,boolean manual,boolean migrate) {
         final Context app=context.getApplicationContext();init(app);final long ticket;
         synchronized(RootAccess.class) {

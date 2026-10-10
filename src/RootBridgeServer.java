@@ -13,6 +13,7 @@ final class RootBridgeServer implements AutoCloseable {
     private final CommandRunner runner;
     private final CommandRunner updateRunner;private final String updateApk;
     private final BooleanSupplier permitted;
+    private final java.util.function.Supplier<String> wakeStatus;
     private volatile boolean closed;
     private volatile ServerSocket listener;
     private volatile Socket commandClient;
@@ -23,9 +24,13 @@ final class RootBridgeServer implements AutoCloseable {
         this(secret,uid,pid,generation,runner,permitted,null,null);
     }
     RootBridgeServer(String secret,int uid,int pid,String generation,CommandRunner runner,BooleanSupplier permitted,CommandRunner updateRunner,String updateApk) {
+        this(secret,uid,pid,generation,runner,permitted,updateRunner,updateApk,()->"unavailable");
+    }
+    RootBridgeServer(String secret,int uid,int pid,String generation,CommandRunner runner,BooleanSupplier permitted,CommandRunner updateRunner,String updateApk,java.util.function.Supplier<String> wakeStatus) {
         if(!RootPermit.nonce(secret)||uid!=0||pid<=0||!RootIdentity.generation(generation))throw new IllegalArgumentException("Invalid owned service identity");
         this.secret=secret;this.uid=uid;this.pid=pid;this.generation=generation;this.runner=runner;this.permitted=permitted;
         this.updateRunner=updateRunner;this.updateApk=updateApk;
+        this.wakeStatus=wakeStatus;
     }
     void serve(int port)throws IOException,InterruptedException {
         try(ServerSocket server=new ServerSocket()) {
@@ -58,6 +63,7 @@ final class RootBridgeServer implements AutoCloseable {
             }
             if(!MessageDigest.isEqual(secret.getBytes(StandardCharsets.US_ASCII),candidate.getBytes(StandardCharsets.US_ASCII)))return;
             String op=in.readUTF();
+            if("wake-status".equals(op)){if(!allowed())return;DataOutputStream out=new DataOutputStream(client.getOutputStream());out.writeUTF(wakeStatus.get());out.flush();return;}
             if("features".equals(op)){DataOutputStream out=new DataOutputStream(client.getOutputStream());out.writeUTF(updateRunner!=null&&updateApk!=null?"UPDATE1":"ROOT1");out.flush();return;}
             if("stop".equals(op)&&"legacy".equals(generation)||"stop-managed".equals(op)&&generation.equals(in.readUTF())) {
                 close();boolean done=awaitCommand();DataOutputStream out=new DataOutputStream(client.getOutputStream());out.writeUTF(done&&runner.cleanupComplete()&&(updateRunner==null||updateRunner.cleanupComplete())?"STOPPED":"STOP_INCOMPLETE");out.flush();return;

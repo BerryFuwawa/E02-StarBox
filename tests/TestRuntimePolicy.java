@@ -23,11 +23,11 @@ public final class TestRuntimePolicy {
             RuntimePolicy restored=new RuntimePolicy(m);Snapshot s=restored.snapshot();
             check(s.keepAlive==keep&&s.autoStart==boot&&s.parkedRemote==park);
             check(restored.bootOrWake().has(boot?CHECK_IDENTITY:NONE));
-            check(restored.restoreExistingService().has(keep?CHECK_IDENTITY:NONE));
+            check(restored.restoreExistingService().has(keep||boot?CHECK_IDENTITY:NONE));
             check(restored.snapshot().keepAlive==keep&&restored.snapshot().autoStart==boot&&restored.snapshot().parkedRemote==park);
             long before=p.ticket();
             if(keep){check(p.exitByUser().has(EXIT_BLOCKED));check(!p.snapshot().exited&&p.ticket()==before);}else{check(p.exitByUser().has(STOP_ALL_OWNED));check(p.snapshot().exited&&p.snapshot().autoStart==boot&&p.snapshot().parkedRemote==park);check(p.openByUser(true).has(CHECK_IDENTITY));}
-            check(p.unexpectedServiceStop().has(keep?RETRY_IDENTITY:NONE));
+            check(p.unexpectedServiceStop().has(keep||boot?RETRY_IDENTITY:NONE));
             check(p.snapshot().keepAlive==keep&&p.snapshot().autoStart==boot&&p.snapshot().parkedRemote==park);
             check(p.configure(false,false,false).has(RELEASE_PARKED_REMOTE));
             check(p.exitByUser().has(STOP_ALL_OWNED));restored=new RuntimePolicy(m);

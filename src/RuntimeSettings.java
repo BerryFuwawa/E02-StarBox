@@ -30,7 +30,7 @@ final class RuntimeSettings {
         }
         return true;
     }
-    static synchronized RuntimePolicy.Decision requestExit(Context context) { init(context);return policy.exitByUser(); }
+    static synchronized RuntimePolicy.Decision requestExit(Context context) { init(context);return policy.exitByUser(wakeRecovery(context)); }
     static synchronized boolean runningAllowed(Context context) {
         init(context);RuntimePolicy.Snapshot current=policy.snapshot();
         return policy.saveHealthy()&&RiskNotice.accepted(context)&&current.accepted&&!current.exited;
@@ -48,10 +48,13 @@ final class RuntimeSettings {
         init(context);
         return !policy.endRootByUser().has(RuntimePolicy.Effect.SAVE_ERROR);
     }
-    static synchronized boolean restore(Context context,boolean coldStart) {
+    static boolean wakeRecovery(Context context) { try{return WakeRecoveryOptions.enabled(context.getApplicationContext().getFilesDir());}catch(java.io.IOException invalid){return false;} }
+    static boolean configureWake(Context context,boolean enabled) { return (!enabled||WakeRecoveryOptions.available())&&WakeRecoveryOptions.write(context.getApplicationContext().getFilesDir(),enabled); }
+    static synchronized boolean restore(Context context,boolean coldStart) { return restore(context,coldStart,false); }
+    static synchronized boolean restore(Context context,boolean coldStart,boolean wake) {
         init(context);
         if(!RiskNotice.accepted(context)||!policy.saveHealthy())return false;
-        RuntimePolicy.Decision decision=coldStart?policy.coldStart():(policy.snapshot().autoStart?policy.bootOrWake():policy.restoreExistingService());
+        RuntimePolicy.Decision decision=coldStart?policy.coldStart():(wake?policy.bootOrWake(wakeRecovery(context)):(policy.snapshot().autoStart?policy.bootOrWake():policy.restoreExistingService(wakeRecovery(context))));
         return decision.has(RuntimePolicy.Effect.CHECK_IDENTITY);
     }
 }
