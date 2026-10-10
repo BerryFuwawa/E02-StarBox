@@ -1,8 +1,8 @@
 {
-  "version": "1.7.4",
-  "versionCode": 14,
-  "apk": "https://github.com/BerryFuwawa/E02-StarBox/releases/download/v1.7.4/E02-Starbox-v1.7.4.apk",
-  "sha256": "c122346024e1f5c74711bb4717ad0ca959e534f7a061e93336cd54682ecd4442",
-  "size": 11867619,
-  "notes": "新增打开软件时自动连接内网穿透与独立授权入口，后台功能移入独立页面；优化服务器选择、跨网段提示，修复缺少文件选择器时的导入闪退。开机自启不再限制主动退出，暂不提供熄火后远程保活。"
+  "version": "1.7.5",
+  "versionCode": 15,
+  "apk": "https://github.com/BerryFuwawa/E02-StarBox/releases/download/v1.7.5/E02-Starbox-v1.7.5.apk",
+  "sha256": "647092c25b76c05856b928f0b95425ad546649c778576c600a4352917a5170df",
+  "size": 11875811,
+  "notes": "修正无线 ADB 状态与开关，关闭局域网访问时保留内网穿透；增加按钮按压和镜像测试进度反馈，异常网络提示统一为黄色。暂时隐藏并停用熄火后远程保活。"
 }
