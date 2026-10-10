@@ -1,8 +1,8 @@
 {
-  "version": "1.7.3",
-  "versionCode": 13,
-  "apk": "https://github.com/BerryFuwawa/E02-StarBox/releases/download/v1.7.3/E02-Starbox-v1.7.3.apk",
-  "sha256": "e576144eeed4500493b97213e457e69ab76a22d194f5f121699a702971f1319d",
-  "size": 11822483,
-  "notes": "修复部分 Flyme Auto 车机更新安装闪退，更新提醒更简洁，新增镜像站自动测试。软件内更新前请先完成 Root 授权。"
+  "version": "1.7.4",
+  "versionCode": 14,
+  "apk": "https://github.com/BerryFuwawa/E02-StarBox/releases/download/v1.7.4/E02-Starbox-v1.7.4.apk",
+  "sha256": "c122346024e1f5c74711bb4717ad0ca959e534f7a061e93336cd54682ecd4442",
+  "size": 11867619,
+  "notes": "新增打开软件时自动连接内网穿透与独立授权入口，后台功能移入独立页面；优化服务器选择、跨网段提示，修复缺少文件选择器时的导入闪退。开机自启不再限制主动退出，暂不提供熄火后远程保活。"
 }
