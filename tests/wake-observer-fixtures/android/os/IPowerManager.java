@@ -1,0 +1,1 @@
+package android.os;public interface IPowerManager{boolean isInteractive();class Stub{public static IPowerManager asInterface(IBinder b){return (IPowerManager)b;}}}

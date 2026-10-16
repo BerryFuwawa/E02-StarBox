@@ -18,12 +18,16 @@ final class RecoveryFlow {
         if(driver.rootBusy())return Result.BUSY;
         driver.checkRoot();
         if(!driver.current())return Result.CANCELLED;
-        if(!driver.restoreWeb())return Result.WEB_WAIT;
+        boolean webReady=driver.restoreWeb();
         if(!driver.current())return Result.CANCELLED;
-        if(!driver.restoreRemote())return Result.ADB_WAIT;
+        // Each channel checks its own prerequisites. A Root webpage waiting for
+        // authorization must not prevent an independent ADB-only FRP tunnel.
+        boolean remoteReady=driver.restoreRemote();
         if(!driver.current())return Result.CANCELLED;
         driver.maintainAdb();
         if(!driver.current())return Result.CANCELLED;
+        if(!webReady)return Result.WEB_WAIT;
+        if(!remoteReady)return Result.ADB_WAIT;
         return driver.rootNeeded()&&!driver.rootAvailable()?Result.ROOT_WAIT:Result.READY;
     }
 }

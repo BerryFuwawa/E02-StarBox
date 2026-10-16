@@ -25,7 +25,10 @@ public class RootBridge {
   final RootPermit.Ticket active=ticket;
   String updateApk=System.getProperty("java.class.path","");try{ManagedUpdate.command(updateApk,"recover");}catch(IOException invalid){updateApk=null;}
   try(RootWakeObserver observer=new RootWakeObserver(directory,active);RootBridgeServer server=new RootBridgeServer(secret,android.os.Process.myUid(),android.os.Process.myPid(),ticket==null?"legacy":ticket.nonce,
-      new OwnedRootCommandRunner(),()->active==null?!RootPermit.file(directory).exists():RootPermit.matches(active),new OwnedRootCommandRunner(),updateApk,observer::status)) {
+      new OwnedRootCommandRunner(),()->active==null?!RootPermit.file(directory).exists():RootPermit.matches(active),new OwnedRootCommandRunner(),updateApk,observer::status,(id,stage,outcome,millis)->{
+       RootTransportLog.record(directory,id,stage,outcome,millis);
+       try{int owner=android.system.Os.stat(directory.getPath()).st_uid;if(owner>=10000){File log=new File(directory,RootTransportLog.FILE);android.system.Os.chown(log.getPath(),owner,owner);android.system.Os.chmod(log.getPath(),0600);}}catch(Exception ignored){}
+      })) {
    observer.register();server.serve(8876);
   }
  }

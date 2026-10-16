@@ -21,8 +21,9 @@ def main():
     parser.add_argument('--java-home', default=os.environ.get('JAVA_HOME', ''))
     parser.add_argument('--android-jar', help='Path to platforms/android-28/android.jar')
     parser.add_argument('--build-tools', help='Path to build-tools/34.0.0')
-    parser.add_argument('--output', help='APK output path; defaults to dist/E02-Starbox-v1.7.4.apk')
+    parser.add_argument('--output', help='APK output path; defaults to dist/E02-Starbox-v1.7.6.apk')
     parser.add_argument('--manifest', help='Explicit manifest for a local research build; default src/AndroidManifest.xml')
+    parser.add_argument('--extra-source', action='append', default=[], help='Explicit Java file for an optional local research build')
     parser.add_argument('--signing-key', help='Existing release keystore; never created automatically')
     parser.add_argument('--signing-alias', help='Alias in the existing release keystore')
     parser.add_argument('--signing-password-env', help='Environment variable containing the release keystore password')
@@ -46,6 +47,9 @@ def main():
     elif args.signing_alias or args.signing_password_env:
         parser.error('Pass --signing-key with the other release signing options.')
     src = ROOT/'src'
+    extra_sources = [Path(p).resolve() for p in args.extra_source]
+    if any(not p.is_file() or p.suffix != '.java' for p in extra_sources):
+        parser.error('Every extra research source must be an existing Java file.')
     manifest = Path(args.manifest).resolve() if args.manifest else src/'AndroidManifest.xml'
     if not manifest.is_file(): parser.error('The explicit manifest does not exist.')
     build = ROOT/'build'
@@ -56,7 +60,7 @@ def main():
         classes, dex, host_api = Path(temp)/'classes', Path(temp)/'dex', Path(temp)/'host-api'
         classes.mkdir(); dex.mkdir(); host_api.mkdir()
         run(executable(java,'javac'), '-encoding','UTF-8','--release','8','-classpath',android,'-d',host_api,*sorted((ROOT/'compile-only/flyme').rglob('*.java')))
-        run(executable(java,'javac'), '-encoding','UTF-8','--release','8','-classpath',os.pathsep.join([str(android),str(ROOT/'third_party/zxing/core-3.5.3.jar'),str(host_api)]),'-d',classes,*sorted(src.glob('*.java')))
+        run(executable(java,'javac'), '-encoding','UTF-8','--release','8','-classpath',os.pathsep.join([str(android),str(ROOT/'third_party/zxing/core-3.5.3.jar'),str(host_api)]),'-d',classes,*sorted(src.glob('*.java')),*extra_sources)
         run(executable(java,'java'),'-cp',tools/'lib/d8.jar','com.android.tools.r8.D8','--lib',android,'--classpath',host_api,'--min-api','28','--output',dex,*sorted(classes.rglob('*.class')),ROOT/'third_party/zxing/core-3.5.3.jar')
         build.mkdir(exist_ok=True)
         unsigned, aligned = build/'unsigned.apk', build/'aligned.apk'
@@ -75,7 +79,7 @@ def main():
             run(executable(java,'keytool'),'-genkeypair','-keystore',key,'-storepass',password,'-alias',alias,'-keyalg','RSA','-keysize','2048','-validity','3650','-dname','CN=Galaxy E02 Tools Development','-storetype','PKCS12')
     dist = ROOT/'dist'
     dist.mkdir(exist_ok=True)
-    apk = Path(args.output).resolve() if args.output else dist/'E02-Starbox-v1.7.5-recovery.apk'
+    apk = Path(args.output).resolve() if args.output else dist/'E02-Starbox-v1.7.6.apk'
     apk.parent.mkdir(parents=True,exist_ok=True)
     run(executable(java,'java'),'-jar',tools/'lib/apksigner.jar','sign','--ks',key,'--ks-pass',password_arg,'--ks-key-alias',alias,'--min-sdk-version','28','--v4-signing-enabled','false','--out',apk,aligned)
     run(executable(java,'java'),'-jar',tools/'lib/apksigner.jar','verify','--verbose',apk)

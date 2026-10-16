@@ -1,0 +1,1 @@
+package android.view;public class DisplayInfo{public int state;public DisplayInfo(int s){state=s;}}

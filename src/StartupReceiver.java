@@ -12,9 +12,10 @@ public final class StartupReceiver extends BroadcastReceiver {
     @Override public void onReceive(Context context,Intent intent) {
         RecoveryPolicy.Event event=intent==null?null:event(intent.getAction());
         if(event==null)return;
+        StartupTrace.record(context.getFilesDir(),"received",event.name());
         RuntimePolicy.Snapshot saved=RuntimeSettings.snapshot(context);
-        if(!RecoveryPolicy.start(saved,RiskNotice.accepted(context),RuntimeSettings.healthy(context),event))return;
-        try {context.startForegroundService(new Intent(context,ConsoleService.class).setAction("restore").putExtra("coldStart",event==RecoveryPolicy.Event.COLD_START));}
-        catch(RuntimeException denied) { RuntimeRecovery.message="系统暂未允许恢复服务，请打开星匣"; }
+        if(!RecoveryPolicy.start(saved,RiskNotice.accepted(context),RuntimeSettings.healthy(context),event)){StartupTrace.record(context.getFilesDir(),"skipped","policy");return;}
+        try {context.startForegroundService(new Intent(context,ConsoleService.class).setAction("restore").putExtra("coldStart",event==RecoveryPolicy.Event.COLD_START));StartupTrace.record(context.getFilesDir(),"service","requested");}
+        catch(RuntimeException denied) { RuntimeRecovery.message="系统暂未允许恢复服务，请打开星匣";StartupTrace.record(context.getFilesDir(),"service","denied"); }
     }
 }

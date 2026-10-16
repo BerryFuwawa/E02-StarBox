@@ -41,7 +41,7 @@ final class RootBootstrap {
                     if(backend.status!=Status.ROOT_READY||backend.uid!=0)return new Result(false,explain(backend.status),null);
                     if(!RootPermit.matches(ticket))return new Result(false,"Root 授权已结束",null);
                     String command=script(apk.getCanonicalPath(),token.getCanonicalPath(),ticket.nonce);
-                    launchIssued=true;String reply=execute(command,5555);
+                    launchIssued=true;String reply=execute(command,5555,backend.host);
                     if(!"E02_STARTED".equals(reply.trim()))throw new IOException("Owned service launch not acknowledged");
                     long deadline=System.nanoTime()+5000000000L;
                     do {
@@ -76,7 +76,11 @@ final class RootBootstrap {
         }
     }
     static boolean listening(int port) {
-        try(Socket socket=new Socket()){socket.connect(new InetSocketAddress("127.0.0.1",port),350);return true;}
+        return listening(port,"127.0.0.1");
+    }
+    static boolean listening(int port,String host) {
+        if(!loopback(host))throw new IllegalArgumentException("Expected local ADB address");
+        try(Socket socket=new Socket()){socket.connect(new InetSocketAddress(host,port),350);return true;}
         catch(IOException unavailable){return false;}
     }
     static String script(String apk,String token,String generation)throws IOException {
@@ -86,10 +90,11 @@ final class RootBootstrap {
     }
     private static boolean invalid(String value) { return value.indexOf('\0')>=0||value.indexOf('\n')>=0||value.indexOf('\r')>=0||value.contains("/../")||value.length()>1024; }
     private static String quote(String value) { return "'"+value.replace("'","'\\''")+"'"; }
-    private static String execute(String command,int port)throws IOException {
+    private static String execute(String command,int port,String host)throws IOException {
+        if(!loopback(host))throw new IOException("Expected local ADB address");
         long deadline=System.nanoTime()+8000000000L;
         try(Socket socket=new Socket()) {
-            socket.connect(new InetSocketAddress("127.0.0.1",port),1500);
+            socket.connect(new InetSocketAddress(host,port),1500);
             OutputStream out=socket.getOutputStream();send(out,CNXN,VERSION,MAX_PAYLOAD,text("host::\0"));Packet hello=receive(socket,deadline);
             if(hello.command!=CNXN||hello.arg0<VERSION||hello.arg1<1||!new String(hello.payload,StandardCharsets.UTF_8).startsWith("device::"))throw new IOException("ADB unavailable or authorization required");
             byte[] service=text("shell:"+command+"\0");if(service.length>Math.min(hello.arg1,MAX_PAYLOAD))throw new IOException("ADB launch request too long");

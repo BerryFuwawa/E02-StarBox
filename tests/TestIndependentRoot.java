@@ -146,13 +146,13 @@ public final class TestIndependentRoot {
         }
     }
     private static void launchStream()throws Exception {
-        Method method=RootBootstrap.class.getDeclaredMethod("execute",String.class,int.class);method.setAccessible(true);
+        Method method=RootBootstrap.class.getDeclaredMethod("execute",String.class,int.class,String.class);method.setAccessible(true);
         String script=RootBootstrap.script("/data/app/pkg/base.apk","/data/user/0/com.e02.rootconsole/files/bridge-token",RootIdentity.challenge());
         try(MockAdb peer=new MockAdb(false,"E02_STARTED\n",false,false)) {
-            String reply=(String)method.invoke(null,script,peer.port());check("E02_STARTED\n".equals(reply),"launch response returned");peer.done();check(("shell:"+script+"\0").equals(peer.request.get()),"exact owned launch only");
+            String reply=(String)method.invoke(null,script,peer.port(),"127.0.0.1");check("E02_STARTED\n".equals(reply),"launch response returned");peer.done();check(("shell:"+script+"\0").equals(peer.request.get()),"exact owned launch only");
         }
-        try(MockAdb peer=new MockAdb(true,"",false,false)) {boolean denied=false;try{method.invoke(null,script,peer.port());}catch(InvocationTargetException e){denied=e.getCause() instanceof IOException;}check(denied,"launch rejects AUTH");peer.done();check(peer.request.get()==null,"launch never sends AUTH key");}
-        try(MockAdb peer=new MockAdb(false,"E02_STARTED\n",true,false)){boolean denied=false;try{method.invoke(null,script,peer.port());}catch(InvocationTargetException e){denied=e.getCause() instanceof IOException;}check(denied,"launch rejects wrong stream");peer.done();}
+        try(MockAdb peer=new MockAdb(true,"",false,false)) {boolean denied=false;try{method.invoke(null,script,peer.port(),"127.0.0.1");}catch(InvocationTargetException e){denied=e.getCause() instanceof IOException;}check(denied,"launch rejects AUTH");peer.done();check(peer.request.get()==null,"launch never sends AUTH key");}
+        try(MockAdb peer=new MockAdb(false,"E02_STARTED\n",true,false)){boolean denied=false;try{method.invoke(null,script,peer.port(),"127.0.0.1");}catch(InvocationTargetException e){denied=e.getCause() instanceof IOException;}check(denied,"launch rejects wrong stream");peer.done();}
     }
     private static void server(File directory)throws Exception {
         RootPermit.Ticket ticket=RootPermit.grant(directory);BlockingRunner runner=new BlockingRunner();

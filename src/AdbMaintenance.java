@@ -36,7 +36,7 @@ public final class AdbMaintenance {
      report(c,address==null?"网络已变化：局域网电脑访问已暂停，内网穿透仍可使用。":"无线 ADB 配置已更新："+address.label()+"，允许电脑 "+peer+"；仍需电脑验证实际连通性。");
     }
    }catch(Exception e){report(c,"无线 ADB 检查失败："+e.getMessage());}
-   finally{if(runner!=null)runner.close();busy=false;}
+   finally{if(runner!=null)runner.close();RemoteService.refreshAdbState();busy=false;}
   },"adb-network-refresh").start();
  }
 }

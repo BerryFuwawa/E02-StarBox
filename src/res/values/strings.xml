@@ -1,1 +1,4 @@
-<resources><string name="app_name">E02星匣</string></resources>
+<resources>
+ <string name="app_name">E02星匣</string>
+ <string name="system_keep_alive_description">帮助E02星匣在系统重新绑定时恢复自己的后台。不开启界面读取、触摸控制或按键过滤，不修改原厂供电。需要开启星匣后台保活；开机恢复还需开启开机自启。关闭星匣后台保活时会停用此服务。</string>
+</resources>

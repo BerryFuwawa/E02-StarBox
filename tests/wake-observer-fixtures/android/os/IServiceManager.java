@@ -1,0 +1,1 @@
+package android.os;public interface IServiceManager{IBinder checkService(String name);}

@@ -1,5 +1,5 @@
 from pathlib import Path
-import subprocess, argparse, os
+import subprocess, argparse, os, sys
 root=Path(__file__).resolve().parent.parent
 parser=argparse.ArgumentParser(description='Windows desktop protocol and command tests')
 parser.add_argument('--java-home',default=os.environ.get('JAVA_HOME',''))
@@ -12,11 +12,15 @@ classes=root/'build/test-classes'
 classes.mkdir(parents=True,exist_ok=True)
 fixtures=root/'build/test-temp'
 fixtures.mkdir(parents=True,exist_ok=True)
+subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-d',str(classes),str(source/'UpdatePolicy.java'),str(source/'UpdateHelp.java'),str(root/'tests/TestUpdateHelp.java')],check=True)
+subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestUpdateHelp'],check=True)
 subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-d',str(classes),str(source/'CommandRunner.java'),str(source/'ConsoleServer.java'),str(root/'tests/TestConsole.java')],check=True)
 subprocess.run([str(java),'-Dsun.net.http.allowRestrictedHeaders=true','-cp',str(classes),'com.e02.rootconsole.TestConsole','C:/Windows/System32/WindowsPowerShell/v1.0/powershell.exe',str(source/'assets/console.html')],check=True)
-subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(source/'UserMessages.java'),str(source/'RootPermit.java'),str(source/'RootIdentity.java'),str(source/'BridgeRunner.java'),str(source/'ManagedUpdate.java'),str(source/'UpdateBridgeRunner.java'),str(source/'RootBridgeServer.java'),str(source/'ReadOnlyAdbProbe.java'),str(source/'RootBootstrap.java'),str(source/'ExitPolicy.java'),str(root/'tests/TestIndependentRoot.java'),str(root/'tests/TestBridge.java'),str(root/'tests/TestUserMessages.java'),str(root/'tests/TestManagedUpdate.java')],check=True)
+subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(source/'UserMessages.java'),str(source/'RootPermit.java'),str(source/'RootIdentity.java'),str(source/'BridgeRunner.java'),str(source/'ManagedUpdate.java'),str(source/'UpdateBridgeRunner.java'),str(source/'RootTransportLog.java'),str(source/'RootBridgeServer.java'),str(source/'ReadOnlyAdbProbe.java'),str(source/'RootBootstrap.java'),str(source/'ExitPolicy.java'),str(root/'tests/TestIndependentRoot.java'),str(root/'tests/TestBridge.java'),str(root/'tests/TestUserMessages.java'),str(root/'tests/TestManagedUpdate.java')],check=True)
 subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestUserMessages'],check=True)
 subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestBridge'],check=True)
+subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(root/'tests/TestRootTransport.java')],check=True)
+subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestRootTransport'],check=True)
 subprocess.run([str(java),'-Djava.io.tmpdir='+str(fixtures),'-cp',str(classes),'com.e02.rootconsole.TestIndependentRoot'],check=True)
 subprocess.run([str(java),'-Djava.io.tmpdir='+str(fixtures),'-cp',str(classes),'com.e02.rootconsole.TestManagedUpdate'],check=True)
 subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(source/'RootAcquisition.java'),str(root/'tests/TestRootAcquisition.java')],check=True)
@@ -26,24 +30,44 @@ subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestRuntimePol
 subprocess.run([str(java),'-Djava.io.tmpdir='+str(fixtures),'-cp',str(classes),'com.e02.rootconsole.TestLifecycleFileStore'],check=True)
 subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(source/'RecoveryPolicy.java'),str(root/'tests/TestRecoveryPolicy.java')],check=True)
 subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestRecoveryPolicy'],check=True)
-subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(source/'WakeRecoveryOptions.java'),str(source/'WakeRestoreController.java'),str(root/'tests/TestWakeRecovery.java')],check=True)
+subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(source/'SystemKeepAliveGate.java'),str(source/'BootSession.java'),str(root/'tests/TestSystemKeepAlive.java')],check=True)
+subprocess.run([str(java),'-Djava.io.tmpdir='+str(fixtures),'-cp',str(classes),'com.e02.rootconsole.TestSystemKeepAlive'],check=True)
+subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-d',str(classes),str(source/'RootTransportLog.java'),str(source/'WakeDiagnosticLog.java'),str(source/'AppLog.java'),str(source/'StartupTrace.java'),str(root/'tests/TestStartupTrace.java'),str(root/'tests/TestAppLog.java')],check=True)
+subprocess.run([str(java),'-Djava.io.tmpdir='+str(fixtures),'-cp',str(classes),'com.e02.rootconsole.TestStartupTrace'],check=True)
+subprocess.run([str(java),'-Djava.io.tmpdir='+str(fixtures),'-cp',str(classes),'com.e02.rootconsole.TestAppLog'],check=True)
+subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(source/'WakeRecoveryOptions.java'),str(source/'WakeRestoreController.java'),str(source/'WakeReceipt.java'),str(source/'ParkingMode.java'),str(root/'tests/TestWakeRecovery.java'),str(root/'tests/TestParkingMode.java')],check=True)
 subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestWakeRecovery'],check=True)
+subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestParkingMode'],check=True)
 subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(source/'RecoveryFlow.java'),str(root/'tests/TestRecoveryFlow.java')],check=True)
 subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestRecoveryFlow'],check=True)
+subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(source/'ChannelRecovery.java'),str(root/'tests/TestChannelRecovery.java')],check=True)
+subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestChannelRecovery'],check=True)
+subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(source/'AdbRecoveryFlow.java'),str(source/'LocalAdbRootRequest.java'),str(root/'tests/TestAdbRecoveryFlow.java'),str(root/'tests/TestLocalAdbRootRequest.java'),str(root/'tests/TestLoopbackAdb.java')],check=True)
+for name in ['TestAdbRecoveryFlow','TestLocalAdbRootRequest','TestLoopbackAdb']:
+    subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.'+name],check=True)
 subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(source/'FrpcSupervisor.java'),str(root/'tests/TestFrpcSupervisor.java')],check=True)
 subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestFrpcSupervisor'],check=True)
 subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(source/'RemoteStartGate.java'),str(source/'RemoteStartFlow.java'),str(root/'tests/TestRemoteStartFlow.java')],check=True)
 subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestRemoteStartFlow'],check=True)
 subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(source/'OwnedProcessFamily.java'),str(root/'tests/TestOwnedProcessFamily.java')],check=True)
 subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestOwnedProcessFamily'],check=True)
+subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(source/'AuxiliaryRepair.java'),str(source/'AuxiliaryRepairChoice.java'),str(source/'RootServiceVersion.java'),str(source/'RootTransportLog.java'),str(source/'WakeDiagnosticLog.java'),str(root/'tests/TestWakeRepair.java')],check=True)
+subprocess.run([str(java),'-Djava.io.tmpdir='+str(fixtures),'-cp',str(classes),'com.e02.rootconsole.TestWakeRepair'],check=True)
+subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(source/'DisplayWakeGate.java'),str(root/'tests/TestDisplayWakeGate.java')],check=True)
+subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestDisplayWakeGate'],check=True)
+for name,production in [('TestBoundedRead','BoundedRead'),('TestRecoveryServiceState','RecoveryServiceState'),('TestStatusEntryPublisher','StatusEntryPublisher'),('TestRemoteNetworkReason','RemoteNetworkReason')]:
+    subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-d',str(classes),str(source/(production+'.java')),str(root/'tests'/(name+'.java'))],check=True)
+    subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.'+name],check=True)
 # Execute the actual Android adapter with a fixture Context in an isolated classpath.
 # These stubs must never enter the production Android build or its official API compile.
 adapter_classes=root/'build/root-adapter-classes'
 adapter_classes.mkdir(parents=True,exist_ok=True)
-adapter_sources=['CommandRunner','UserMessages','RootPermit','RootIdentity','BridgeRunner','ManagedUpdate','UpdateBridgeRunner','RootBridgeServer','ReadOnlyAdbProbe','RootBootstrap','RootAcquisition','RootState','ExitPolicy','RuntimePolicy','LifecycleFileStore','RuntimeSettings','WakeRecoveryOptions','RootAccess','RecoveryPolicy','StartupReceiver','WakeSignals','KeepAlivePresentation','StatusBarEntry']
+adapter_sources=['CommandRunner','UserMessages','RootPermit','RootIdentity','BridgeRunner','ManagedUpdate','UpdateBridgeRunner','RootBridgeServer','ReadOnlyAdbProbe','RootBootstrap','RootAcquisition','RootState','ExitPolicy','RuntimePolicy','LifecycleFileStore','RuntimeSettings','WakeRecoveryOptions','RootAccess','RootAdbRecovery','AdbRecoveryFlow','LocalAdbRootRequest','RecoveryPolicy','StartupReceiver','StartupTrace','AppLog','WakeSignals','KeepAlivePresentation','StatusBarEntry','SystemKeepAliveGate','SystemKeepAlive','SystemKeepAliveService','BootSession','AuxiliaryRepairChoice','RootServiceVersion','WakeDiagnosticLog','RootTransportLog']
 subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-d',str(adapter_classes)]+[str(source/(name+'.java')) for name in adapter_sources]+[str(path) for path in sorted((root/'tests/android-fixtures').rglob('*.java'))]+[str(root/'tests/TestRootAccessIntegration.java'),str(root/'tests/TestStartupReceiver.java'),str(root/'tests/TestStatusBarEntry.java'),str(root/'tests/TestWakeSignals.java')],check=True)
 subprocess.run([str(java),'-Djava.io.tmpdir='+str(fixtures),'-cp',str(adapter_classes),'com.e02.rootconsole.TestRootAccessIntegration'],check=True)
 subprocess.run([str(java),'-Djava.io.tmpdir='+str(fixtures),'-cp',str(adapter_classes),'com.e02.rootconsole.TestStartupReceiver'],check=True)
+subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(adapter_classes),'-d',str(adapter_classes),str(root/'tests/TestSystemKeepAliveService.java')],check=True)
+subprocess.run([str(java),'-Djava.io.tmpdir='+str(fixtures),'-cp',str(adapter_classes),'com.e02.rootconsole.TestSystemKeepAliveService'],check=True)
 subprocess.run([str(java),'-cp',str(adapter_classes),'com.e02.rootconsole.TestWakeSignals'],check=True)
 subprocess.run([str(java),'-Djava.io.tmpdir='+str(fixtures),'-cp',str(adapter_classes),'com.e02.rootconsole.TestStatusBarEntry'],check=True)
 subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-d',str(classes),str(source/'RootState.java'),str(source/'RootLaunch.java'),str(source/'AdbStatus.java'),str(source/'LocalAdb.java'),str(root/'tests/TestAuthorization.java'),str(root/'tests/TestAdbStatus.java'),str(root/'tests/TestAdbHandshake.java')],check=True)
@@ -69,3 +93,4 @@ subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8'
 subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestMirrorSearch'],check=True)
 subprocess.run([str(java.parent/'javac.exe'),'--release','8','-encoding','UTF-8','-cp',str(classes),'-d',str(classes),str(source/'UpdateHttp.java'),str(root/'tests/TestUpdateHttp.java')],check=True)
 subprocess.run([str(java),'-cp',str(classes),'com.e02.rootconsole.TestUpdateHttp'],check=True)
+subprocess.run([sys.executable,str(root/'tests/run-wake-observer-tests.py'),'--java-home',str(java.parent.parent)],check=True)

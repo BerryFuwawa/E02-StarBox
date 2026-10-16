@@ -27,5 +27,6 @@ final class RecoveryPolicy {
         return valid(state,accepted,healthy)&&(state.autoStart||background(state,wakeRecovery));
     }
     /** Partial wake locks and wakeup alarms would violate the safe-sleep policy. */
-    static final int[] RETRY_SECONDS={1,5,15};
+    // Boot services may appear late; bounded ordinary handler delays never wake the vehicle.
+    static final int[] RETRY_SECONDS={1,5,15,30,60,120,300};
 }

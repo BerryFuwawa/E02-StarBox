@@ -1,0 +1,1 @@
+package android.hardware.display;import android.os.*;import android.view.DisplayInfo;public interface IDisplayManager{DisplayInfo getDisplayInfo(int id)throws RemoteException;void registerCallback(IDisplayManagerCallback callback)throws RemoteException;public static final class Stub{public static IDisplayManager asInterface(IBinder binder){return (IDisplayManager)binder;}}}

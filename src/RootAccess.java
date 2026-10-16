@@ -4,16 +4,20 @@ import android.content.Context;
 import java.io.*;
 import java.util.*;
 
-/** Shared actual authorization. First acquisition needs consent; checks never change system ADB. */
+/** Shared actual authorization; native ADB preparation requires its own persisted opt-in. */
 public final class RootAccess {
     private static final RootState state=new RootState();
     private static final Set<CommandRunner> clients=new HashSet<>();
     private static final Set<Integer> knownPorts=new HashSet<>();
+    private static final java.util.concurrent.locks.ReentrantLock commandGate=new java.util.concurrent.locks.ReentrantLock(true);
     private static volatile String secret="",message="尚未获得 Root 授权";
     private static volatile long checkedAt;
     private static RootIdentity identity;
     private static RootAcquisition.Mode mode=RootAcquisition.Mode.UNAVAILABLE;
-    private static boolean refreshing,revoking,checking,authorizing;
+    private static boolean refreshing,checking,authorizing;
+    private static volatile boolean revoking;
+    private static volatile boolean wakeReady;
+    static boolean wakeReady(){return wakeReady;}
     private static int rootCommands,launchAttempts;
     public static synchronized void init(Context context) {
         if(!secret.isEmpty())return;
@@ -45,13 +49,34 @@ public final class RootAccess {
         try {return check(context,true,true);}finally{synchronized(RootAccess.class){authorizing=false;}}
     }
     static CommandRunner.Result prepareWake(Context context) {
+        wakeReady=false;
         if(!WakeRecoveryOptions.available()){CommandRunner.Result disabled=new CommandRunner.Result();disabled.exit=0;return disabled;}
         if(!RuntimeSettings.automaticRootAllowed(context))return failure("请先启用独立 Root 授权");
         if(busy())return failure("正在处理授权，请稍后重新检测 Root");
-        try{if("registered".equals(BridgeRunner.wakeStatus(secret))){CommandRunner.Result ready=new CommandRunner.Result();ready.exit=0;return ready;}return failure("唤醒恢复暂不可用，请查看诊断结果");}catch(IOException unsupported){}
-        CommandRunner.Result result=enableIndependent(context);
-        if(result.exit==0)try{if(!"registered".equals(BridgeRunner.wakeStatus(secret)))result.error="唤醒恢复暂不可用，请查看诊断结果";}catch(IOException unavailable){result.error="唤醒恢复暂不可用，请查看诊断结果";}
-        return result;
+        try{String observer=BridgeRunner.wakeStatus(secret);if(RootServiceVersion.matches(observer,new File(context.getApplicationInfo().sourceDir))){wakeReady=true;CommandRunner.Result ready=new CommandRunner.Result();ready.exit=0;return ready;}
+            if(observer.startsWith("registered")||"disabled".equals(observer))return failure("恢复服务版本较旧，请在后台页面重新启用系统辅助保活；现有 Root 仍可使用");
+            return failure("唤醒恢复暂不可用，请查看诊断结果");}catch(IOException unsupported){}
+        // A status check must never rotate consent or replace a healthy service.
+        return failure("唤醒恢复暂不可用，请查看诊断结果");
+    }
+    static CommandRunner.Result prepareWakeByUser(Context context){
+        CommandRunner.Result current=prepareWake(context);return current.error.isEmpty()?current:upgradeWakeService(context);
+    }
+    private static CommandRunner.Result upgradeWakeService(Context context) {
+        synchronized(RootAccess.class){if(busy())return failure("正在处理授权，请稍后重试");authorizing=true;}
+        try {
+            RootPermit.Ticket permit=RootPermit.active(context.getFilesDir());
+            if(permit==null||!RuntimeSettings.automaticRootAllowed(context))return failure("请先启用独立 Root 授权");
+            BridgeRunner.identity(secret,permit.nonce);
+            if(ReadOnlyAdbProbe.probe(5555).status!=ReadOnlyAdbProbe.Status.ROOT_READY)return failure("更新唤醒恢复需要本机 Root ADB，现有授权继续保留");
+            if(BridgeRunner.stopManagedResult(secret,permit.nonce,8876)!=BridgeRunner.StopResult.STOPPED)return failure("旧授权服务尚未停止，请重新检测 Root");
+            RootBootstrap.Result result=RootBootstrap.acquire(new File(context.getApplicationInfo().sourceDir),new File(context.getFilesDir(),"bridge-token"),permit,secret);
+            if(!result.ready){invalidate();return failure(result.message);}
+            synchronized(RootAccess.class){identity=result.identity;}
+            if(!RootServiceVersion.matches(BridgeRunner.wakeStatus(secret),new File(context.getApplicationInfo().sourceDir)))return failure("恢复服务版本未核对通过，Root 授权仍可使用");
+            wakeReady=true;CommandRunner.Result ready=new CommandRunner.Result();ready.exit=0;return ready;
+        }catch(IOException invalid){return failure("无法更新唤醒恢复，请重新检测 Root");}
+        finally{synchronized(RootAccess.class){authorizing=false;}}
     }
     private static CommandRunner.Result check(Context context,boolean manual,boolean migrate) {
         final Context app=context.getApplicationContext();init(app);final long ticket;
@@ -71,7 +96,7 @@ public final class RootAccess {
                 public boolean permissionFileExists() { return RootPermit.file(directory()).exists(); }
                 public RootIdentity identity(RootPermit.Ticket lease) throws IOException { return BridgeRunner.identity(secret,lease.nonce); }
                 public boolean legacyAuthorized() { return valid(legacyRead()); }
-                public ReadOnlyAdbProbe.Result backend() { return ReadOnlyAdbProbe.probe(5555); }
+                public ReadOnlyAdbProbe.Result backend() { return RootAdbRecovery.prepare(app,()->current()&&launchAttempts<3); }
                 public RootPermit.Ticket grant() throws IOException {
                     synchronized(RootAccess.class) { return automaticAllowed()?RootPermit.grant(directory()):null; }
                 }
@@ -105,9 +130,9 @@ public final class RootAccess {
         synchronized(RootAccess.class) {
             checking=false;
             if(!revoking&&state.publish(ticket,result.available(),true)) {
-                identity=result.identity;mode=result.mode;message=result.message;checkedAt=System.currentTimeMillis();
+                String nextMessage=!result.available()&&launchAttempts>=3&&RuntimeSettings.automaticRootAllowed(app)?"自动授权暂未成功，请点击重新检测 Root 重试":result.message;
+                if(mode!=result.mode||!message.equals(nextMessage))AppLog.record(app.getFilesDir(),"提权",result.available()?"Root 授权检测通过":nextMessage);identity=result.identity;mode=result.mode;message=nextMessage;checkedAt=System.currentTimeMillis();
                 if(result.mode==RootAcquisition.Mode.OWNED)knownPorts.add(8876);
-                if(!result.available()&&launchAttempts>=3&&RuntimeSettings.automaticRootAllowed(app))message="自动授权暂未成功，请点击重新检测 Root 重试";
                 app.getSharedPreferences("connection",0).edit().putBoolean("bridgeMode",true).apply();
             }
         }
@@ -123,14 +148,14 @@ public final class RootAccess {
         refreshing=true;Context app=context.getApplicationContext();
         new Thread(()->{try{check(app,false);}finally{synchronized(RootAccess.class){refreshing=false;}}},"root-status").start();
     }
-    public static synchronized void resetRecovery() { launchAttempts=0;checkedAt=0; }
+    public static synchronized void resetRecovery() { launchAttempts=0;checkedAt=0;RootAdbRecovery.reset(); }
     public static synchronized RootPermit.Ticket fallbackPermit(Context context)throws IOException {
         if(busy()||!RuntimeSettings.runningAllowed(context))throw new IOException("正在处理授权，请稍后重试");
         RootPermit.Ticket lease=RootPermit.active(context.getFilesDir());
         if(lease!=null)return lease;
         lease=RootPermit.grant(context.getFilesDir());invalidate();return lease;
     }
-    public static synchronized void invalidate() { state.clear();identity=null;mode=RootAcquisition.Mode.UNAVAILABLE;checkedAt=System.currentTimeMillis(); }
+    public static synchronized void invalidate() { wakeReady=false;state.clear();identity=null;mode=RootAcquisition.Mode.UNAVAILABLE;checkedAt=System.currentTimeMillis(); }
     public static synchronized void beginRevoke() {
         revoking=true;invalidate();message="正在结束提权";
         for(CommandRunner client:new ArrayList<>(clients))client.close();
@@ -138,7 +163,7 @@ public final class RootAccess {
     public static synchronized void finishRevoke() { revoking=false;checkedAt=System.currentTimeMillis(); }
     /** The caller has already closed the in-memory gate. Revocation excludes late children. */
     public static CommandRunner.Result stop(Context context,boolean endConsent) {
-        init(context);boolean saved=!endConsent||RuntimeSettings.endRoot(context);RootPermit.Ticket lease=null;boolean revoked=true;
+        init(context);AppLog.record(context.getFilesDir(),"提权",endConsent?"用户结束提权":"退出程序，结束本次授权");boolean saved=!endConsent||RuntimeSettings.endRoot(context);RootPermit.Ticket lease=null;boolean revoked=true;
         try {lease=RootPermit.active(context.getFilesDir());}catch(IOException ignored) {}
         if(lease!=null)try {BridgeRunner.identity(secret,lease.nonce);synchronized(RootAccess.class){knownPorts.add(8876);}}catch(IOException ignored){}
         legacyRead();
@@ -175,15 +200,27 @@ public final class RootAccess {
             private final java.util.concurrent.atomic.AtomicBoolean busy=new java.util.concurrent.atomic.AtomicBoolean();
             @Override public Result execute(String command,boolean root,int seconds) {
                 if(closed)return failure("命令连接已关闭");if(!busy.compareAndSet(false,true))return failure("已有命令正在执行，请稍后重试");
+                boolean serialized=false;
                 try {
                     if(!root)return super.execute(command,false,seconds);
+                    // All app-owned ordinary Root clients share the single command worker.
+                    // Waiting is cancellable, bounded, and never retries a sent command.
+                    if(updateOperation==null){
+                        long until=System.nanoTime()+java.util.concurrent.TimeUnit.SECONDS.toNanos(5);
+                        while(!closed&&!revoking&&System.nanoTime()<until){
+                            try{if(commandGate.tryLock(100,java.util.concurrent.TimeUnit.MILLISECONDS)){serialized=true;break;}}
+                            catch(InterruptedException cancelled){Thread.currentThread().interrupt();return failure("操作已取消");}
+                        }
+                        if(!serialized)return failure(closed||revoking?"操作已取消":"Root 正在处理其他操作，请稍后重试");
+                    }
                     RootIdentity owned;long epoch;CommandRunner selected;
                     synchronized(RootAccess.class) {
-                        if(!available()||revoking||checking||authorizing||!RuntimeSettings.runningAllowed(app))return failure("Root 授权不可用，请重新授权");
+                        if(!available()||revoking||!RuntimeSettings.runningAllowed(app))return failure("Root 授权不可用，请重新授权");
+                        if(checking||authorizing)return failure("正在检测或准备 Root 授权，请稍后重试");
                         owned=identity;
                         try{selected=updateOperation==null?new BridgeRunner(secret,false):new UpdateBridgeRunner(secret,updateOperation,app.getApplicationInfo().sourceDir,owned==null);}
                         catch(IOException invalid){return failure("无法准备更新任务，请重新打开星匣后重试");}
-                        epoch=state.begin();rootCommands++;clients.add(selected);rootRunner=selected;
+                        epoch=state.ticket();rootCommands++;clients.add(selected);rootRunner=selected;
                     }
                     try {
                         if(owned!=null) {
@@ -200,7 +237,7 @@ public final class RootAccess {
                         selected.close();rootRunner=null;
                         synchronized(RootAccess.class) {rootCommands--;clients.remove(selected);}
                     }
-                } finally {busy.set(false);}
+                } finally {if(serialized)commandGate.unlock();busy.set(false);}
             }
             @Override public void close() {closed=true;CommandRunner active=rootRunner;if(active!=null)active.close();super.close();}
         };

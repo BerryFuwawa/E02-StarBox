@@ -23,10 +23,10 @@ public final class TestWakeRecovery {
             check(store.commit(old)&&!WakeRecoveryOptions.read(home)); // dormant legacy opt-in is not reused
             byte[] legacy=Files.readAllBytes(store.file().toPath());
             check(WakeRecoveryOptions.write(home,true)&&WakeRecoveryOptions.read(home));
-            check(!WakeRecoveryOptions.available()&&!WakeRecoveryOptions.enabled(home)); // hidden legacy opt-in remains inert in stable release
+            check(WakeRecoveryOptions.available()&&WakeRecoveryOptions.enabled(home)); // explicit new opt-in enables research wake route
             check(Arrays.equals(legacy,Files.readAllBytes(store.file().toPath()))); // keeps old package compatibility
             check(WakeRecoveryOptions.write(home,false)&&!WakeRecoveryOptions.read(home));
-            Files.write(directory.resolve("wake-recovery"),new byte[65]);
+            Files.write(directory.resolve("wake-recovery-v2"),new byte[65]);
             try{WakeRecoveryOptions.read(home);throw new AssertionError("corrupt opt-in accepted");}catch(IOException expected){checks++;}
             check(WakeRecoveryOptions.write(home,true)&&WakeRecoveryOptions.read(home));
             for(int bits=0;bits<64;bits++){

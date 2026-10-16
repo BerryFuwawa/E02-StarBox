@@ -51,7 +51,10 @@ public final class TestRootAccessIntegration {
             try(Backend backend=new Backend(0)){RootAccess.check(app,false);}
             check(!RootAccess.available()&&RootAccess.needsConsent(),"real adapter separates Root backend from owned service");
             check(RootPermit.active(directory.toFile())==null&&!RuntimeSettings.snapshot(app).rootAllowed,"first check grants neither consent nor lease");
-            RootPermit.Ticket lease=RootPermit.grant(directory.toFile());CommandRunner childRunner=new CommandRunner(shell,shell);
+            RootPermit.Ticket lease=RootAccess.fallbackPermit(app);
+            check(lease!=null&&RootPermit.matches(lease)&&!RootAccess.available()&&!RuntimeSettings.snapshot(app).rootAllowed,"explicit fallback creates a launch ticket without claiming Root or enabling automatic consent");
+            check(RootAccess.fallbackPermit(app).nonce.equals(lease.nonce),"repeated fallback copy preserves current generation");
+            CommandRunner childRunner=new CommandRunner(shell,shell);
             AtomicReference<String> wakeStatus=new AtomicReference<>("unavailable");
             service=new RootBridgeServer(SECRET,0,12345,lease.nonce,childRunner,()->RootPermit.matches(lease),null,null,wakeStatus::get);
             RootBridgeServer instance=service;AtomicReference<Throwable> failure=new AtomicReference<>();
@@ -61,9 +64,11 @@ public final class TestRootAccessIntegration {
             check(ready,"fixture HMAC service listening");RootAccess.check(app,false);
             check(RootAccess.available()&&!RootAccess.needsConsent(),"production adapter accepts only matching owned identity");
             check(RuntimeSettings.approveRoot(app),"fixture approves previously established owned Root");
-            check(RootAccess.prepareWake(app).exit==0&&RootAccess.prepareWake(app).error.isEmpty(),"stable release does not register or upgrade a wake observer");
+            check(!RootAccess.prepareWake(app).error.isEmpty(),"missing observer reports failure without replacing owned authorization");
             check(RootPermit.matches(lease)&&RootAccess.available(),"observer failure preserves Root lease and ordinary commands");
-            wakeStatus.set("registered");
+            wakeStatus.set("registered-v2");
+            check(!RootAccess.prepareWake(app).error.isEmpty()&&RootPermit.matches(lease),"old daemon is detected without silent restart");
+            wakeStatus.set(RootServiceVersion.PREFIX+RootServiceVersion.hash(new File(app.info.sourceDir)));
             check(RootAccess.prepareWake(app).exit==0,"authenticated observer readiness accepted");
             check(RootPermit.matches(lease),"ready observer does not rotate permission");
             try{BridgeRunner.wakeStatus("ffffffffffffffffffffffffffffffff");throw new AssertionError("wake status disclosed to wrong credential");}catch(IOException expected){checks++;}
@@ -72,6 +77,20 @@ public final class TestRootAccessIntegration {
             check(!RootAccess.busy()&&RootAccess.available(),"failed update capability check releases actual registry without revoking Root");
             proxy=RootAccess.runner(app,shell);CommandRunner.Result root=proxy.execute("Write-Output 'owned-fixture'",true,5);
             check(root.exit==0&&root.stdout.contains("owned-fixture"),"production root proxy uses fixture protocol");
+            CommandRunner concurrent=RootAccess.runner(app,shell);
+            AtomicReference<CommandRunner.Result> firstResult=new AtomicReference<>(),secondResult=new AtomicReference<>();
+            CommandRunner serialOne=proxy;
+            Thread first=new Thread(()->firstResult.set(serialOne.execute("Start-Sleep -Milliseconds 350; Write-Output 'first-queued'",true,5)));
+            Field serialProcess=CommandRunner.class.getDeclaredField("current");serialProcess.setAccessible(true);
+            first.start();deadline=System.nanoTime()+TimeUnit.SECONDS.toNanos(3);
+            while(System.nanoTime()<deadline&&serialProcess.get(childRunner)==null)Thread.sleep(10);
+            check(serialProcess.get(childRunner)!=null,"first actual command active before competing request");
+            Thread second=new Thread(()->secondResult.set(concurrent.execute("Write-Output 'second-queued'",true,5)));second.start();
+            first.join(8000);second.join(8000);concurrent.close();
+            check(!first.isAlive()&&!second.isAlive(),"both production command clients completed");
+            check(firstResult.get().exit==0&&firstResult.get().stdout.contains("first-queued"),"first command not invalidated by competing request");
+            check(secondResult.get().exit==0&&secondResult.get().stdout.contains("second-queued"),"second command queued rather than rejected by worker");
+            check(RootAccess.available()&&!RootAccess.busy(),"queued operations preserve actual authorization and release registry");
             CommandRunner sameProxy=proxy;AtomicReference<CommandRunner.Result> blocked=new AtomicReference<>();
             Thread request=new Thread(()->blocked.set(sameProxy.execute("Start-Sleep -Seconds 30",true,45)),"fixture-active-root-request");request.start();
             Field processField=CommandRunner.class.getDeclaredField("current");processField.setAccessible(true);
@@ -95,6 +114,7 @@ public final class TestRootAccessIntegration {
             byte[] before=Files.readAllBytes(RootPermit.file(directory.toFile()).toPath());
             check(!RootAccess.check(app,false).error.isEmpty()&&!RootAccess.available(),"exited app refuses root acquisition");
             check(java.util.Arrays.equals(before,Files.readAllBytes(RootPermit.file(directory.toFile()).toPath())),"exit check does not alter the permission file");
+            try{RootAccess.fallbackPermit(app);throw new AssertionError("exited app prepared fallback");}catch(IOException expected){checks++;}
             System.out.println("PASS "+checks+" production adapter checks: fixture context/UID, real local protocol/storage, first consent, owned identity, direct child stop, ordinary command continuity, explicit end vs stale consent, exit gate. No vehicle or real Root acquisition.");
         } finally {
             if(proxy!=null)proxy.close();if(service!=null)service.close();if(serviceThread!=null)serviceThread.join(3500);

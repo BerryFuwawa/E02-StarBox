@@ -10,6 +10,7 @@ import java.lang.Process;
 /** Exactly one unprivileged frpc child; manual stop always wins over recovery. */
 public class RemoteService extends Service {
     public static volatile boolean running,connected;
+    private static volatile boolean adbWaiting;
     public static volatile String status="未启动",log="";
     private static volatile RemoteService owner;
     private static final Object CLIENT_LOCK=new Object();
@@ -27,11 +28,11 @@ public class RemoteService extends Service {
         if(!RuntimeSettings.runningAllowed(context))throw new IllegalStateException("星匣已退出，请重新打开");
         if(!RiskNotice.accepted(context))throw new IllegalStateException("请先阅读并同意使用提示");
         if(!context.getSharedPreferences("remote",0).edit().putBoolean("resumeRequested",true).commit())throw new IllegalStateException("无法保存远程连接设置，请检查存储");
-        manuallyStopped=false;context.startForegroundService(new Intent(context,RemoteService.class));
+        manuallyStopped=false;adbWaiting=false;context.startForegroundService(new Intent(context,RemoteService.class));AppLog.record(context.getFilesDir(),"远程","已请求启动远程连接");
     }
     public static synchronized void stop(Context context){
         RemoteStartController.gate.cancel();
-        manuallyStopped=true;
+        manuallyStopped=true;adbWaiting=false;AppLog.record(context.getFilesDir(),"远程","用户停止远程连接");
         boolean saved=context.getSharedPreferences("remote",0).edit().putBoolean("resumeRequested",false).commit();
         RemoteService current=owner;if(current!=null)current.stopChild();
         status=saved?"已停止":"已停止，但设置未保存，请重新打开后检查";
@@ -41,21 +42,30 @@ public class RemoteService extends Service {
         if(RemoteStartController.gate.current(ticket)&&RuntimeSettings.runningAllowed(context))start(context);
     }
     static synchronized boolean restore(Context context)throws IOException {
-        if(manuallyStopped||running||!context.getSharedPreferences("remote",0).getBoolean("resumeRequested",false))return true;
+        if(manuallyStopped||!context.getSharedPreferences("remote",0).getBoolean("resumeRequested",false))return true;
         if(!RuntimeSettings.runningAllowed(context))return false;
         SharedPreferences prefs=context.getSharedPreferences("remote",0);
+        if(running){adbWaiting=prefs.getInt("mode",0)==0&&prefs.getBoolean("adb",false)&&!LocalAdb.available();if(connected)status=connectedStatus();return !adbWaiting;}
+        adbWaiting=false;
         if(prefs.getInt("mode",0)==0){
             if(prefs.getBoolean("console",true)&&ConsoleService.server==null)return false;
             if(prefs.getBoolean("adb",false)&&!LocalAdb.available()){
-                if(!RootAccess.available())return false;
-                CommandRunner runner=RootAccess.runner(context);CommandRunner.Result result;
-                try{synchronized(AdbControl.LOCK){result=runner.execute(AdbControl.ensureLocal(),true,10);}}finally{runner.close();}
-                if(result.exit!=0||result.timedOut||!result.error.isEmpty()||!LocalAdb.available())return false;
+                if(RootAccess.available()){
+                    CommandRunner runner=RootAccess.runner(context);
+                    try{synchronized(AdbControl.LOCK){runner.execute(AdbControl.ensureLocal(),true,10);}}finally{runner.close();}
+                }
+                adbWaiting=!LocalAdb.available();
             }
+            if(!ChannelRecovery.mayStart(prefs.getBoolean("console",true),ConsoleService.server!=null,prefs.getBoolean("adb",false),!adbWaiting))return false;
             String config=RemoteConfig.client(prefs.getString("host",""),RemoteConfig.port(prefs.getString("port","7000")),prefs.getString("token",""),prefs.getString("secret",""),"127.0.0.1",ConsoleService.webPort(),prefs.getBoolean("console",true),prefs.getBoolean("adb",false),prefs.getString("user",""));
             if(!prefs.edit().putString("config",config).putString("format","toml").commit())throw new IOException("无法保存远程配置");
         }
-        context.startForegroundService(new Intent(context,RemoteService.class));return true;
+        context.startForegroundService(new Intent(context,RemoteService.class));return !adbWaiting;
+    }
+    private static String connectedStatus(){return adbWaiting?"服务器已连接；ADB 尚未就绪，请单独检查网页回传":"已连接服务器，通道是否可用请查看日志";}
+    static void refreshAdbState(){
+        if(!running||!adbWaiting||!LocalAdb.available())return;
+        synchronized(RemoteService.class){if(!running||!adbWaiting)return;adbWaiting=false;if(connected)status=connectedStatus();}
     }
     private void stopChild(){restartPending=false;FrpcSupervisor current=session;if(current!=null)current.stop();}
     private boolean current(FrpcSupervisor task){return owner==this&&!destroyed&&session==task&&!task.stopped();}
@@ -69,8 +79,8 @@ public class RemoteService extends Service {
         if(!current(task))return;
         String clean=line.replaceAll("\u001B\\[[;\\d]*m","");
         log+=clean+"\n";if(log.length()>16000)log=log.substring(log.length()-16000);
-        if(clean.contains("login to server success")){connected=true;status="已连接服务器，通道是否可用请查看日志";}
-        if(clean.contains("connect to server error")||clean.contains("connection closed")||clean.contains("heartbeat timeout")){connected=false;status="正在重连，请查看日志";}
+        if(clean.contains("login to server success")){if(!connected)AppLog.record(getFilesDir(),"远程","已连接服务器");connected=true;status=connectedStatus();}
+        if(clean.contains("connect to server error")||clean.contains("connection closed")||clean.contains("heartbeat timeout")){if(connected||!status.equals("正在重连，请查看日志"))AppLog.record(getFilesDir(),"远程","连接中断，正在重连");connected=false;status="正在重连，请查看日志";}
         record();
     }
     @Override public void onCreate(){
@@ -85,11 +95,12 @@ public class RemoteService extends Service {
     private String defaultNetworkKey(){
         if(manager==null)return "none";
         Network network=manager.getActiveNetwork();LinkProperties properties=network==null?null:manager.getLinkProperties(network);
-        return String.valueOf(network)+"|"+(properties==null?"":properties.getDnsServers().toString()+properties.getInterfaceName());
+        return String.valueOf(network)+"|"+(properties==null?"":properties.getInterfaceName())+"|"+(properties==null?"":properties.getDnsServers().toString());
     }
     private synchronized void networkChanged(){
-        if(destroyed)return;String key=defaultNetworkKey();if(key.equals(networkKey))return;networkKey=key;
+        if(destroyed)return;String key=defaultNetworkKey();if(key.equals(networkKey))return;String reason=RemoteNetworkReason.changed(networkKey,key);networkKey=key;
         FrpcSupervisor task=session;if(task==null||task.stopped())return;
+        AppLog.record(getFilesDir(),"网络",reason);
         connected=false;status="网络已变化，正在重新连接…";task.networkChanged();
     }
     @Override public int onStartCommand(Intent intent,int flags,int id){
@@ -103,6 +114,7 @@ public class RemoteService extends Service {
     private void begin(){
         FrpcSupervisor task=new FrpcSupervisor();session=task;running=true;connected=false;restartPending=false;
         status="正在检查配置并启动远程连接…";log=callback==null?"网络变化检测暂不可用，连接仍会尝试重连\n":"";
+        AppLog.record(getFilesDir(),"远程","开始运行远程服务");
         startForegroundService(new Intent(this,ConsoleService.class));
         new Thread(()->runClient(task),"starbox-frpc").start();
     }
@@ -139,6 +151,7 @@ public class RemoteService extends Service {
                 }
                 public void retry(int exit,long delayMillis){
                     if(!current(task))return;connected=false;
+                    AppLog.record(getFilesDir(),"远程","远程连接中断（"+exit+"），准备重试");
                     status="远程连接中断，"+(delayMillis/1000)+"秒后重试";
                     append(task,"远程连接已停止（"+exit+"），"+(delayMillis/1000)+"秒后重试");
                 }

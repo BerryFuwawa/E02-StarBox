@@ -12,35 +12,41 @@ public class ConsoleService extends Service {
  public static volatile ConsoleServer server;
  public static volatile String url="",pin="",error="";
  public static volatile boolean root,bridge;
- private WindowManager windows;private Badge badge;private WindowManager.LayoutParams layout;
- private Handler handler=new Handler();private boolean capturing,stopping,started,hadRoot,statusPublished;private int statusVisibility=-1;
+ private static volatile boolean rootDeferred;
+ private WindowManager windows;private View badge;private boolean invisibleBadge;private WindowManager.LayoutParams layout;
+ private Handler handler=new Handler();private boolean capturing,stopping,started,hadRoot;
+ private final StatusEntryPublisher statusEntry=new StatusEntryPublisher();
+ private final Runnable earlyStatusRepost=()->refreshStatusEntry(true),lateStatusRepost=()->refreshStatusEntry(true);
  private static Context sessionContext;private android.net.ConnectivityManager connectivity;private android.net.ConnectivityManager.NetworkCallback networkCallback;
  public static boolean active(Context c){boolean work=MainActivity.visible()||KeepAlivePresentation.overlay(RuntimeSettings.runningAllowed(c),RuntimeSettings.snapshot(c).keepAlive,c.getSharedPreferences("connection",0).getBoolean("overlay",true),Settings.canDrawOverlays(c))||server!=null||RemoteService.running||UpdateService.downloading||c.getSharedPreferences("connection",0).getBoolean("adbManaged",false)||PhoneCompanion.connected()||RuntimeRecovery.working()||RemoteStartController.preparing();return RuntimeSettings.runningAllowed(c)&&RecoveryPolicy.serviceWanted(RuntimeSettings.snapshot(c),work,RuntimeSettings.wakeRecovery(c));}
  private final Runnable tick=new Runnable(){public void run(){if(!active(ConsoleService.this)){stopSelf();return;}refreshStatusEntry();refreshBadge();PhoneCompanion.refresh();refreshSessionNetwork();RootAccess.refresh(ConsoleService.this);AdbMaintenance.refresh(ConsoleService.this);boolean ready=RootAccess.available();if(ready&&!hadRoot)RuntimeRecovery.request(ConsoleService.this);hadRoot=ready;handler.postDelayed(this,3000);}};
  public static synchronized void endSession(){if(sessionContext!=null&&!sessionContext.getSharedPreferences("connection",0).edit().putBoolean("webRequested",false).putBoolean("webRootRequested",false).commit())error="停止回传设置未保存，请重新打开后检查";closeSession();}
- private static synchronized void closeSession(){ConsoleServer old=server;server=null;url="";pin="";root=false;if(old!=null)old.close();}
+ private static synchronized void closeSession(){ConsoleServer old=server;server=null;url="";pin="";root=false;rootDeferred=false;if(old!=null){old.close();if(sessionContext!=null)AppLog.record(sessionContext.getFilesDir(),"网页回传","回传服务已停止");}}
  public static synchronized boolean restoreSession(Context c)throws java.io.IOException {
   if(!RuntimeSettings.runningAllowed(c))return false;
   if(server!=null||!c.getSharedPreferences("connection",0).getBoolean("webRequested",false))return true;
   boolean wanted=c.getSharedPreferences("connection",0).getBoolean("webRootRequested",false);
-  if(wanted&&!RootAccess.available())return false;
-  startSession(c,lanHost(c),wanted);return true;
+  boolean actualRoot=ChannelRecovery.webRoot(wanted,RootAccess.available());
+  startSession(c,lanHost(c),actualRoot,wanted);return true;
  }
  public static int webPort(){ConsoleServer current=server;return current==null?8875:current.port();}
  public static synchronized ConsoleServer startSession(Context c,String lanHost,boolean allowRoot)throws java.io.IOException {
+  return startSession(c,lanHost,allowRoot,allowRoot);
+ }
+ private static synchronized ConsoleServer startSession(Context c,String lanHost,boolean allowRoot,boolean requestedRoot)throws java.io.IOException {
   sessionContext=c.getApplicationContext();if(server!=null)return server;if(!RiskNotice.accepted(c))throw new java.io.IOException("请先阅读并同意使用提示");if(!c.getSharedPreferences("connection",0).getBoolean("appActive",false))throw new java.io.IOException("星匣已退出，请重新打开");
   if(allowRoot&&!RootAccess.available())throw new java.io.IOException("Root 授权已失效，请重新授权");
   java.io.ByteArrayOutputStream page=new java.io.ByteArrayOutputStream();try(java.io.InputStream in=c.getAssets().open("console.html")){byte[] b=new byte[4096];int n;while((n=in.read(b))!=-1)page.write(b,0,n);}
   String code=String.format(java.util.Locale.US,"%04d",new java.security.SecureRandom().nextInt(10000));
   ConsoleServer next=new ConsoleServer("127.0.0.1",8875,code,page.toByteArray(),allowRoot,RootAccess.runner(c));
   error="";try{next.updateLan(lanHost);}catch(java.io.IOException e){error="局域网入口暂不可用，内网穿透仍可使用";lanHost="";}
-  pin=code;root=allowRoot;bridge=RootAccess.bridge();url="http://"+(lanHost==null||lanHost.isEmpty()?"127.0.0.1":lanHost)+":"+next.port()+"/";
+  pin=code;root=allowRoot;rootDeferred=requestedRoot&&!allowRoot;bridge=RootAccess.bridge();url="http://"+(lanHost==null||lanHost.isEmpty()?"127.0.0.1":lanHost)+":"+next.port()+"/";
   if(RemoteService.running)next.setRemoteOrigin(c.getSharedPreferences("remote",0).getString("origin","http://127.0.0.1:8875"));
-  if(!c.getSharedPreferences("connection",0).edit().putBoolean("webRequested",true).putBoolean("webRootRequested",allowRoot).commit()){next.close();throw new java.io.IOException("无法保存回传设置，请检查存储后重试");}
-  next.start();server=next;try{c.startForegroundService(new Intent(c,ConsoleService.class));}catch(RuntimeException error){closeSession();throw new java.io.IOException("系统暂未允许启动回传服务",error);}return next;
+  if(!c.getSharedPreferences("connection",0).edit().putBoolean("webRequested",true).putBoolean("webRootRequested",requestedRoot).commit()){next.close();throw new java.io.IOException("无法保存回传设置，请检查存储后重试");}
+  next.start();server=next;try{c.startForegroundService(new Intent(c,ConsoleService.class));}catch(RuntimeException error){closeSession();throw new java.io.IOException("系统暂未允许启动回传服务",error);}AppLog.record(c.getFilesDir(),"网页回传",allowRoot?"已启动，允许本次 Root 命令":"已启动，普通权限");return next;
  }
  public static String lanHost(Context c){java.util.List<NetworkState.Address> all=NetworkState.list();String iface=c.getSharedPreferences("connection",0).getString("consoleInterface","");for(NetworkState.Address a:all)if(a.iface.equals(iface))return a.ip;return all.isEmpty()?"":all.get(0).ip;}
- private void refreshSessionNetwork(){ConsoleServer current=server;if(current==null)return;String host=lanHost(this);try{current.updateLan(host);url="http://"+(host.isEmpty()?"127.0.0.1":host)+":"+current.port()+"/";error=host.isEmpty()?"暂无局域网地址，可使用内网穿透访问":"";}catch(java.io.IOException e){error="局域网入口暂不可用，内网穿透仍可使用";}if(root&&!RootAccess.available()){current.disableRoot();root=false;}}
+ private void refreshSessionNetwork(){ConsoleServer current=server;if(current==null)return;String host=lanHost(this);try{current.updateLan(host);url="http://"+(host.isEmpty()?"127.0.0.1":host)+":"+current.port()+"/";error=host.isEmpty()?"暂无局域网地址，可使用内网穿透访问":"";}catch(java.io.IOException e){error="局域网入口暂不可用，内网穿透仍可使用";}if(root&&!RootAccess.available()){current.disableRoot();root=false;rootDeferred=true;}if(rootDeferred)error+=(error.isEmpty()?"":"\n")+"当前网页仅允许普通命令；恢复 Root 后，请停止并重新启动回传以允许 Root 命令";}
  public void onCreate(){super.onCreate();sessionContext=getApplicationContext();NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);nm.createNotificationChannel(new NotificationChannel("e02-session","E02星匣",NotificationManager.IMPORTANCE_LOW));
   PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class),PendingIntent.FLAG_UPDATE_CURRENT);
   startForeground(20,new Notification.Builder(this,"e02-session").setSmallIcon(getApplicationInfo().icon).setContentTitle("E02星匣 · 服务运行中").setContentText("点击返回星匣；各服务在对应页面单独停止").setContentIntent(open).setOngoing(true).build());
@@ -55,18 +61,24 @@ public class ConsoleService extends Service {
   if("restore".equals(action)||intent==null||wake){
    boolean cold=intent!=null&&intent.getBooleanExtra("coldStart",false);
    if(!RuntimeSettings.restore(this,cold,wake)){stopSelf();return START_NOT_STICKY;}
+   if(wake){WakeReceipt.acknowledge(getFilesDir(),intent.getStringExtra("wakeGeneration"),intent.getStringExtra("wakeRequest"));StartupTrace.record(getFilesDir(),"received","WAKE");RootAccess.resetRecovery();}
    getSharedPreferences("connection",0).edit().putBoolean("appActive",true).apply();RootAccess.resetRecovery();RuntimeRecovery.request(this);if(cold)RemoteStartController.onApplicationOpen(this);
   }
   if(!active(this)){stopSelf();return START_NOT_STICKY;}
+  if(!BootSession.remember(getFilesDir(),BootSession.current()))StartupTrace.record(getFilesDir(),"boot-session","unavailable");
+  boolean firstStart=!started;
   if(!started){started=true;PhoneCompanion.start(this);observeNetwork();handler.post(tick);}
   if("center".equals(action)){android.util.DisplayMetrics m=new android.util.DisplayMetrics();windows.getDefaultDisplay().getMetrics(m);int x=Math.max(0,(m.widthPixels-dp(80))/2),y=Math.max(0,(m.heightPixels-dp(44))/2);getSharedPreferences("connection",0).edit().putInt("x",x).putInt("y",y).apply();if(layout!=null){layout.x=x;layout.y=y;if(badge!=null)try{windows.updateViewLayout(badge,layout);}catch(Exception ignored){}}}
   if("stop".equals(action))endSession();
   if("options".equals(action))RuntimeRecovery.request(this);
-  refreshStatusEntry();refreshBadge();return RecoveryPolicy.background(RuntimeSettings.snapshot(this),RuntimeSettings.wakeRecovery(this))?START_STICKY:START_NOT_STICKY;
+  boolean restoring=firstStart||wake||"restore".equals(action)||intent==null;
+  refreshStatusEntry(restoring);
+  if(restoring){handler.removeCallbacks(earlyStatusRepost);handler.removeCallbacks(lateStatusRepost);handler.postDelayed(earlyStatusRepost,2000);handler.postDelayed(lateStatusRepost,6000);}
+  refreshBadge();return RecoveryPolicy.background(RuntimeSettings.snapshot(this),RuntimeSettings.wakeRecovery(this))?START_STICKY:START_NOT_STICKY;
  }
  private boolean validWakeRequest(Intent intent){
   if(!WakeRecoveryOptions.available())return false;
-  try{RootPermit.Ticket ticket=RootPermit.active(getFilesDir());return ticket!=null&&ticket.nonce.equals(intent.getStringExtra("wakeGeneration"))&&RootPermit.matches(ticket)&&RecoveryPolicy.start(RuntimeSettings.snapshot(this),RiskNotice.accepted(this),RuntimeSettings.healthy(this),RecoveryPolicy.Event.WAKE,RuntimeSettings.wakeRecovery(this));}catch(java.io.IOException invalid){return false;}
+  try{RootPermit.Ticket ticket=RootPermit.active(getFilesDir());return ticket!=null&&RootPermit.nonce(intent.getStringExtra("wakeRequest"))&&ticket.nonce.equals(intent.getStringExtra("wakeGeneration"))&&RootPermit.matches(ticket)&&RecoveryPolicy.start(RuntimeSettings.snapshot(this),RiskNotice.accepted(this),RuntimeSettings.healthy(this),RecoveryPolicy.Event.WAKE,RuntimeSettings.wakeRecovery(this));}catch(java.io.IOException invalid){return false;}
  }
  private void observeNetwork(){
   connectivity=(android.net.ConnectivityManager)getSystemService(CONNECTIVITY_SERVICE);
@@ -74,18 +86,32 @@ public class ConsoleService extends Service {
   try{if(connectivity!=null)connectivity.registerDefaultNetworkCallback(networkCallback);}catch(RuntimeException denied){networkCallback=null;}
  }
 
- private void refreshStatusEntry(){
-  boolean enabled=StatusBarEntry.wanted(this);if(!StatusBarEntry.sync(this))enabled=false;int value=enabled?1:0;if(value==statusVisibility)return;statusVisibility=value;if(enabled)statusPublished=true;
+ private void refreshStatusEntry(){refreshStatusEntry(false);}
+ private void refreshStatusEntry(boolean force){
+  if(stopping||!RuntimeSettings.runningAllowed(this))return;
+  if(!StatusBarEntry.sync(this)){AppLog.record(getFilesDir(),"状态栏","状态栏入口暂未就绪");return;}
+  final boolean enabled=StatusBarEntry.wanted(this);
+  final NotificationManager manager=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
+  StatusEntryPublisher.Presence actual=StatusEntryPublisher.Presence.UNKNOWN;
+  try{android.service.notification.StatusBarNotification[] active=manager.getActiveNotifications();if(active!=null){actual=StatusEntryPublisher.Presence.ABSENT;for(android.service.notification.StatusBarNotification item:active)if(item.getId()==STATUS_NOTIFICATION&&getPackageName().equals(item.getPackageName())){android.os.Bundle values=item.getNotification().extras;if(!enabled||(values!=null&&values.getBoolean("flag_status_icon_notification",false)&&!values.getBoolean("flag_status_icon_hide",true)))actual=StatusEntryPublisher.Presence.PRESENT;break;}}}catch(RuntimeException unavailable){}
+  StatusEntryPublisher.Result result=statusEntry.refresh(enabled,force,actual,new StatusEntryPublisher.Driver(){
+   public boolean current(boolean wanted){return !stopping&&RuntimeSettings.runningAllowed(ConsoleService.this)&&StatusBarEntry.wanted(ConsoleService.this)==wanted;}
+   public void publish(boolean visible){publishStatusEntry(manager,visible);}
+  });
+  if(result==StatusEntryPublisher.Result.FAILED)AppLog.record(getFilesDir(),"状态栏","状态栏入口更新失败，将重新检查");
+ }
+ private void publishStatusEntry(NotificationManager manager,boolean enabled){
   PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
   Notification.Builder notice=new Notification.Builder(this,"e02-session").setSmallIcon(getApplicationInfo().icon).setContentTitle("E02星匣 · 服务运行中").setContentText("点击返回星匣；各服务在对应页面单独停止").setContentIntent(open).setOngoing(true);
   // This Flyme host filters foreground-service notifications before status icons.
   // Keep notification 20 for the service, and use a separate app-owned status entry.
-  NotificationManager manager=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
-  if(statusPublished){notice.addExtras(StatusBarEntry.extras(this,enabled));manager.notify(STATUS_NOTIFICATION,notice.build());if(!enabled)manager.cancel(STATUS_NOTIFICATION);}
+  notice.addExtras(StatusBarEntry.extras(this,enabled));manager.notify(STATUS_NOTIFICATION,notice.build());if(!enabled)manager.cancel(STATUS_NOTIFICATION);
  }
  private int dp(int n){return (int)(getResources().getDisplayMetrics().density*n);}
  private void refreshBadge(){boolean show=KeepAlivePresentation.overlay(active(this),RuntimeSettings.snapshot(this).keepAlive,getSharedPreferences("connection",0).getBoolean("overlay",true),Settings.canDrawOverlays(this));
-  if(!show){removeBadge();return;}if(capturing||badge!=null)return;
+  if(!show){removeBadge();return;}boolean invisible=getSharedPreferences("connection",0).getBoolean("invisibleOverlay",false);if(badge!=null&&invisible!=invisibleBadge)removeBadge();if(capturing||badge!=null)return;
+  invisibleBadge=invisible;
+  if(invisible){badge=new View(this);badge.setBackgroundColor(Color.TRANSPARENT);badge.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);layout=new WindowManager.LayoutParams(1,1,WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE,PixelFormat.TRANSLUCENT);layout.gravity=Gravity.TOP|Gravity.LEFT;layout.x=0;layout.y=0;try{windows.addView(badge,layout);}catch(Exception e){error="悬浮窗显示失败："+UserMessages.explain(e);badge=null;}return;}
   badge=new Badge(this);layout=new WindowManager.LayoutParams(dp(80),dp(44),WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,PixelFormat.TRANSLUCENT);layout.gravity=Gravity.TOP|Gravity.LEFT;layout.x=getSharedPreferences("connection",0).getInt("x",24);layout.y=getSharedPreferences("connection",0).getInt("y",180);
   badge.setOnClickListener(v->startActivity(new Intent(this,MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK|Intent.FLAG_ACTIVITY_SINGLE_TOP)));
   badge.setOnLongClickListener(v->{captureScreen();return true;});

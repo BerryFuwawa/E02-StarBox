@@ -52,7 +52,8 @@ public final class TestManagedUpdate {
         check(ManagedUpdate.timeout("download")==650&&ManagedUpdate.timeout("install")==210&&ManagedUpdate.timeout("recover")==45,"separate bounded task deadlines");
         for(String op:new String[]{"run","install;id","", "DOWNLOAD"})rejected(()->ManagedUpdate.command(APK,op),"reject arbitrary operation");
         for(String path:new String[]{"/system/app/base.apk","/data/app/a/../base.apk","/data/app/a/./base.apk","/data/app/a/base.apk\n","/data/app/a/not-base.apk"})rejected(()->ManagedUpdate.command(path,"install"),"reject foreign or malformed APK");
-        check(ManagedUpdate.command("/data/app/a'$(id)/base.apk","install").contains("'\\''"),"APK safely shell quoted");
+        check(!ManagedUpdate.command("/data/app/a'$(id)/base.apk","install").contains("$(id)"),"caller path never becomes executable shell text");
+        check(ManagedUpdate.command(APK,"download").contains("/system/bin/pm path com.e02.rootconsole")&&ManagedUpdate.command(APK,"download").contains("[ -f \"$starbox_apk\" ]"),"resolve the current installed package before every task");
         Task ordinary=new Task(false),update=new Task(true);
         try(Server server=new Server(0,ordinary,update)){
             try(Socket s=server.request(SECRET,"features")){check("UPDATE1".equals(new DataInputStream(s.getInputStream()).readUTF()),"managed update capability");}

@@ -17,10 +17,13 @@ public class UpdateService extends Service {
   public String notice(){switch(phase){case FOUND:return "发现更新 - "+release.version+" - 点击查看";case CHECK_FAILED:return "检测更新失败，点击查看";case DOWNLOADING:return message+" - 点击查看";case READY:return "下载完成 - "+release.version+" - 点击安装";case DOWNLOAD_FAILED:return "下载失败，点击查看";case INSTALLING:return "正在安装 - "+release.version;case INSTALL_FAILED:return "安装失败，点击查看";default:return "";}}
  }
  private static volatile State current=new State(Phase.IDLE,"尚未检查更新",null,"",0);
+ public static final class CheckResult {public final State state;public final boolean download;CheckResult(State state,boolean download){this.state=state;this.download=download;}}
+ private static boolean manualRequested,downloadRequested;private static CheckResult manualResult;
  public static volatile boolean busy,downloading;private static volatile boolean cancelled;private static volatile UpdateHttp transport;private static volatile Context app;private static volatile String mirror="";private static volatile boolean watching;private static boolean initialized;
  private static final int NOTIFICATION=21;
  public static State state(){return current;}
- private static synchronized void publish(Phase p,String m,UpdateRelease r,String route,long bytes){current=new State(p,m,r,route,bytes);busy=current.working();downloading=p==Phase.DOWNLOADING;}
+ private static synchronized void publish(Phase p,String m,UpdateRelease r,String route,long bytes){if(app!=null&&current.phase!=p){String event=p==Phase.CHECKING?"正在检查更新":p==Phase.FOUND?"发现新版本":p==Phase.LATEST?"已是最新版本":p==Phase.CHECK_FAILED?"检查更新失败":p==Phase.DOWNLOADING?"开始下载更新":p==Phase.READY?"下载及校验完成":p==Phase.DOWNLOAD_FAILED?"下载失败":p==Phase.INSTALLING?"开始安装更新":p==Phase.INSTALL_FAILED?"安装失败":p==Phase.COMPLETED?"更新安装完成":p==Phase.CANCELLED?"已取消更新":null;if(event!=null)AppLog.record(app.getFilesDir(),"更新",event);}current=new State(p,m,r,route,bytes);busy=current.working();downloading=p==Phase.DOWNLOADING;if(manualRequested&&(p==Phase.FOUND||p==Phase.LATEST||p==Phase.CHECK_FAILED||p==Phase.CANCELLED)){manualResult=new CheckResult(current,downloadRequested);manualRequested=false;downloadRequested=false;}}
+ public static synchronized CheckResult takeManualResult(){CheckResult result=manualResult;manualResult=null;return result;}
  public static String installedName(Context c){try{return c.getPackageManager().getPackageInfo(c.getPackageName(),0).versionName;}catch(Exception e){return "版本未知";}}
  private static long installed(Context c)throws Exception{return c.getPackageManager().getPackageInfo(c.getPackageName(),0).getLongVersionCode();}
  public static synchronized void initialize(Context context){app=context.getApplicationContext();if(initialized)return;initialized=true;
@@ -30,7 +33,8 @@ public class UpdateService extends Service {
  }
  private static Phase phase(String value){return Phase.valueOf(value.toUpperCase(java.util.Locale.US));}
  private static synchronized boolean begin(Phase p,String message){if(busy||current.ready())return false;cancelled=false;mirror="";publish(p,message,current.release,current.route,0);return true;}
- public static void check(Context context,boolean manual){initialize(context);if(!RiskNotice.accepted(context)||!begin(Phase.CHECKING,"正在检查更新…"))return;
+ public static void check(Context context,boolean manual){check(context,manual,false);}
+ public static synchronized void check(Context context,boolean manual,boolean download){initialize(context);if(!RiskNotice.accepted(context))return;if(current.ready()){if(manual)manualResult=new CheckResult(current,false);return;}if(current.phase==Phase.CHECKING){manualRequested|=manual;downloadRequested|=manual&&download;return;}if(!begin(Phase.CHECKING,"正在检查更新…"))return;manualRequested=manual;downloadRequested=manual&&download;manualResult=null;
   String route=context.getSharedPreferences("updates",0).getString("proxy","");new Thread(()->{UpdateHttp http=new UpdateHttp();transport=http;try(Closeable deadline=http.deadline(20000)){UpdateRelease r=new UpdateRelease(new JSONObject(new String(http.manifest(route),"UTF-8")));if(cancelled)throw new IOException("已取消检查");publish(r.code>installed(app)?Phase.FOUND:Phase.LATEST,r.code>installed(app)?"发现新版本 "+r.version:"已是最新版",r,route,0);}catch(Exception e){publish(cancelled?Phase.CANCELLED:Phase.CHECK_FAILED,cancelled?"已取消检查":"检查失败："+UserMessages.explain(e),null,route,0);}finally{http.close();transport=null;}},"starbox-update-check").start();
  }
  public static void testMirrors(Context context){initialize(context);if(!RiskNotice.accepted(context)||!begin(Phase.TESTING,"正在测试镜像站…"))return;

@@ -1,0 +1,1 @@
+package android.system;public class Os{public static class Stat{public int st_uid=0;}public static Stat stat(String p){return new Stat();}public static void chown(String p,int u,int g){}public static void chmod(String p,int m){}}

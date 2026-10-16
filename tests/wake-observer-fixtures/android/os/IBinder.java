@@ -1,0 +1,1 @@
+package android.os; public interface IBinder {int FIRST_CALL_TRANSACTION=1,INTERFACE_TRANSACTION=1598968902;interface DeathRecipient{void binderDied();}boolean isBinderAlive();void linkToDeath(DeathRecipient d,int f)throws RemoteException;boolean unlinkToDeath(DeathRecipient d,int f);boolean transact(int code,Parcel data,Parcel reply,int flags)throws RemoteException;}

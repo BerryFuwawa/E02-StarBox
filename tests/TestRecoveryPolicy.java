@@ -24,7 +24,8 @@ public final class TestRecoveryPolicy {
             }
             check(live.keepAlive==keep&&live.autoStart==boot&&live.parkedRemote==park);
         }
-        check(RecoveryPolicy.RETRY_SECONDS.length==3&&RecoveryPolicy.RETRY_SECONDS[0]==1&&RecoveryPolicy.RETRY_SECONDS[1]==5&&RecoveryPolicy.RETRY_SECONDS[2]==15);
+        check(RecoveryPolicy.RETRY_SECONDS.length==7&&RecoveryPolicy.RETRY_SECONDS[0]==1&&RecoveryPolicy.RETRY_SECONDS[1]==5&&RecoveryPolicy.RETRY_SECONDS[2]==15);
+        int previous=0,total=0;for(int delay:RecoveryPolicy.RETRY_SECONDS){check(delay>previous);previous=delay;total+=delay;}check(total<=600&&previous>=120);
         System.out.println("PASS "+checks+" recovery policy checks: eight independent combinations, standard boot/restart/replaced gates, dormant legacy parked flag, ignored wake, exit/consent/storage failure and bounded retry delays. This does not simulate vehicle power or Android services.");
     }
 }

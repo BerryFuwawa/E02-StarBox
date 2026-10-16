@@ -14,7 +14,9 @@ public final class ReadOnlyAdbProbe {
         public final Status status;
         public final int uid;
         public final String detail;
-        Result(Status status, int uid, String detail) { this.status=status;this.uid=uid;this.detail=detail; }
+        final String host;
+        Result(Status status, int uid, String detail) { this(status,uid,detail,"127.0.0.1"); }
+        Result(Status status, int uid, String detail,String host) { this.status=status;this.uid=uid;this.detail=detail;this.host=host; }
         public String toString() { return status+" uid="+uid+" "+detail; }
     }
     static final class Packet {
@@ -55,12 +57,23 @@ public final class ReadOnlyAdbProbe {
     public static Result probe(int port) {
         if(port<1||port>65535)throw new IllegalArgumentException("Invalid port");
         long deadline=System.nanoTime()+5000000000L;
+        Result first=probe(port,"127.0.0.1",deadline);
+        // Both addresses name this device. Never bypass an explicit ADB authorization response.
+        if(first.status!=Status.UNAVAILABLE||System.nanoTime()>=deadline)return first;
+        Result second=probe(port,"::1",deadline);
+        return second.status==Status.UNAVAILABLE?first:second;
+    }
+    static boolean loopback(String host){return "127.0.0.1".equals(host)||"::1".equals(host);}
+    static Result probe(int port,String host,long deadline) {
+        if(port<1||port>65535||!loopback(host))throw new IllegalArgumentException("Expected local ADB address");
         try(Socket socket=new Socket()) {
-            socket.connect(new InetSocketAddress("127.0.0.1",port),1500);
+            long remaining=(deadline-System.nanoTime())/1000000;
+            if(remaining<=0)throw new SocketTimeoutException("Probe deadline reached");
+            socket.connect(new InetSocketAddress(host,port),(int)Math.min(remaining,1500));
             OutputStream out=socket.getOutputStream();
             send(out,CNXN,VERSION,MAX_PAYLOAD,text("host::\0"));
             Packet hello=receive(socket,deadline);
-            if(hello.command==AUTH)return new Result(Status.AUTH_REQUIRED,-1,"Authorization required; no key sent");
+            if(hello.command==AUTH)return new Result(Status.AUTH_REQUIRED,-1,"Authorization required; no key sent",host);
             if(hello.command!=CNXN||hello.arg0<VERSION||hello.arg1<1||!new String(hello.payload,StandardCharsets.UTF_8).startsWith("device::"))throw new IOException("Unexpected device handshake");
             byte[] service=text("shell:id -u\0");if(service.length>Math.min(hello.arg1,MAX_PAYLOAD))throw new IOException("ADB service request too long");
             send(out,OPEN,LOCAL,0,service);
@@ -68,7 +81,7 @@ public final class ReadOnlyAdbProbe {
             ByteArrayOutputStream output=new ByteArrayOutputStream();
             for(int count=0;count<32;count++) {
                 Packet p=receive(socket,deadline);
-                if(p.command==CLSE&&remote==0&&p.arg1==LOCAL)return new Result(Status.SERVICE_DENIED,-1,"Read-only service unavailable");
+                if(p.command==CLSE&&remote==0&&p.arg1==LOCAL)return new Result(Status.SERVICE_DENIED,-1,"Read-only service unavailable",host);
                 if(p.command==OKAY&&remote==0&&p.arg0>0&&p.arg1==LOCAL&&p.payload.length==0) { remote=p.arg0;continue; }
                 if(remote==0||p.arg0!=remote||p.arg1!=LOCAL)throw new IOException("Mismatched ADB stream");
                 if(p.command==WRTE) {
@@ -80,12 +93,12 @@ public final class ReadOnlyAdbProbe {
                     String value=new String(output.toByteArray(),StandardCharsets.US_ASCII).trim();
                     if(!value.matches("[0-9]{1,8}"))throw new IOException("UID not verified");
                     int uid=Integer.parseInt(value);
-                    return new Result(uid==0?Status.ROOT_READY:uid==2000?Status.SHELL_ONLY:Status.OTHER_UID,uid,"Read-only UID verified");
+                    return new Result(uid==0?Status.ROOT_READY:uid==2000?Status.SHELL_ONLY:Status.OTHER_UID,uid,"Read-only UID verified",host);
                 }
                 throw new IOException("Unexpected ADB command");
             }
             throw new IOException("Too many ADB frames");
-        } catch(IOException e) { return new Result(Status.UNAVAILABLE,-1,e.getClass().getSimpleName()); }
+        } catch(IOException e) { return new Result(Status.UNAVAILABLE,-1,e.getClass().getSimpleName(),host); }
     }
     public static void main(String[] args) { if(args.length!=1)throw new IllegalArgumentException("Expected local forwarded port");System.out.println(probe(Integer.parseInt(args[0]))); }
 }

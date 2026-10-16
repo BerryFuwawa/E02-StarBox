@@ -6,6 +6,8 @@ public abstract class Context {
     public ComponentName startForegroundService(Intent intent) { throw new UnsupportedOperationException("fixture must record service request"); }
     public Context getApplicationContext(){return this;}
     public String getPackageName(){return "com.e02.rootconsole";}
+    public int checkSelfPermission(String permission){return -1;}
+    public ContentResolver getContentResolver(){throw new UnsupportedOperationException("Explicit settings fixture required");}
     public android.content.pm.PackageManager getPackageManager(){throw new UnsupportedOperationException();}
     public android.content.res.Resources getResources(){return new android.content.res.Resources();}
     public abstract File getFilesDir();

@@ -1,0 +1,33 @@
+package com.e02.rootconsole;
+import android.os.*;import android.hardware.display.*;import android.view.*;import java.io.*;
+public final class TestWakeObserverRebind {
+ public static class Display extends Binder implements IDisplayManager {
+  volatile int state=2,registrations;volatile boolean reject,revokeDuringRegister,dieDuringRegister;
+  IDisplayManagerCallback callback;
+  public DisplayInfo getDisplayInfo(int id){return new DisplayInfo(state);}
+  public void registerCallback(IDisplayManagerCallback c){registrations++;if(reject)throw new SecurityException("fixture denial");callback=c;if(revokeDuringRegister)FixtureState.permit=false;if(dieDuringRegister)die();}
+  void changed()throws Exception{if(callback!=null)callback.onDisplayEvent(0,2);}
+ }
+ public static class Power extends Binder implements IPowerManager {public boolean isInteractive(){return true;}}
+ static int checks;static void check(boolean value,String why){checks++;if(!value)throw new AssertionError(why);}
+ static RootWakeObserver start(Display d){FixtureState.reset();SystemClock.offset=0;ServiceManager.cachedDisplay=null;ServiceManager.cachedPower=null;ServiceManager.rawCalls=0;ServiceManager.display=d;ServiceManager.power=new Power();RootWakeObserver w=new RootWakeObserver(new File("fixture"),new RootPermit.Ticket());w.register();check(w.status().equals("registered-v5:fixture"),"initial observer registered");return w;}
+ static long commands(String match){return FixtureState.commands.stream().filter(x->x.contains(match)).count();}
+ static void waitFor(String event)throws Exception{long end=System.nanoTime()+4000000000L;while(!FixtureState.events.contains(event)&&System.nanoTime()<end)Thread.sleep(5);check(FixtureState.events.contains(event),"expected event "+event);Thread.sleep(30);}
+ static Display replace(Display first,Display next){ServiceManager.cachedDisplay=first;ServiceManager.display=next;first.die();return next;}
+ public static void main(String[] args)throws Exception {
+  Display first=new Display(),next=new Display();RootWakeObserver w=start(first);FixtureState.live=0;replace(first,next);waitFor("service:receipt-confirmed");check(next.registrations==1,"replacement registered once");check(ServiceManager.rawCalls>0,"dead cache bypassed by read-only authoritative lookup");check(commands("start-foreground-service")==1,"actual ON reconciles absent own service");check(w.status().equals("registered-v5:fixture"),"actual registration status restored");long count=FixtureState.commands.size();first.changed();Thread.sleep(40);check(FixtureState.commands.size()==count,"retired old callback ignored");w.close();
+  first=new Display();next=new Display();w=start(first);replace(first,next);waitFor("service:already-running");check(commands("start-foreground-service")==0&&commands(" put secure ")==0,"healthy service not restarted and no authorization write");w.close();
+  first=new Display();next=new Display();next.state=1;w=start(first);FixtureState.live=0;replace(first,next);waitFor("rebind:ready");check(FixtureState.commands.isEmpty(),"registering while OFF does not start app or edit authorization");next.state=2;next.changed();waitFor("service:receipt-confirmed");check(commands("start-foreground-service")==1,"later actual OFF/ON still delivered");w.close();
+  first=new Display();next=new Display();w=start(first);FixtureState.exit=true;replace(first,next);Thread.sleep(80);check(next.registrations==0&&FixtureState.commands.isEmpty(),"active exit blocks rebind and application restore");w.close();
+  first=new Display();next=new Display();w=start(first);FixtureState.permit=false;replace(first,next);Thread.sleep(80);check(next.registrations==0&&FixtureState.commands.isEmpty(),"revocation blocks rebind");w.close();
+  first=new Display();next=new Display();w=start(first);FixtureState.auto=false;replace(first,next);Thread.sleep(80);check(next.registrations==0&&FixtureState.commands.isEmpty(),"disabled autostart blocks rebind");w.close();
+  first=new Display();next=new Display();next.revokeDuringRegister=true;w=start(first);FixtureState.live=0;replace(first,next);waitFor("rebind:not-restored");check(FixtureState.commands.isEmpty()&&w.status().equals("unavailable"),"revocation during registration leaves no successful recovery claim");w.close();
+  first=new Display();next=new Display();next.reject=true;w=start(first);replace(first,next);waitFor("rebind:registration-unavailable");next.reject=false;Thread.sleep(80);check(next.registrations==1&&FixtureState.commands.isEmpty(),"uncertain live registration is never retried");check(w.status().equals("unavailable"),"rejected registration is not ready");w.close();
+  first=new Display();w=start(first);ServiceManager.cachedDisplay=first;ServiceManager.display=null;first.die();waitFor("rebind:waiting-service");w.close();next=new Display();ServiceManager.display=next;Thread.sleep(80);check(next.registrations==0&&FixtureState.commands.isEmpty(),"close cancels delayed reconnect");
+  first=new Display();w=start(first);FixtureState.live=0;ServiceManager.cachedDisplay=first;ServiceManager.display=null;first.die();waitFor("rebind:waiting-service");next=new Display();ServiceManager.display=next;waitFor("service:receipt-confirmed");check(next.registrations==1,"late service gets one registration on bounded retry");w.close();
+  first=new Display();next=new Display();w=start(first);Power oldPower=(Power)ServiceManager.power;oldPower.die();ServiceManager.cachedPower=oldPower;ServiceManager.power=new Power();FixtureState.live=0;replace(first,next);waitFor("service:receipt-confirmed");check(commands("start-foreground-service")==1,"dead power cache also read freshly");w.close();
+  first=new Display();w=start(first);FixtureState.list="other.app/.Service";FixtureState.live=0;next=new Display();replace(first,next);waitFor("service:receipt-confirmed");check(commands(" put secure ")==1&&FixtureState.list.equals("other.app/.Service:"+AuxiliaryRepair.COMPONENT),"own authorization repaired without deleting other app");w.close();
+  first=new Display();w=start(first);ServiceManager.cachedDisplay=first;ServiceManager.display=null;first.die();waitFor("rebind:waiting-service");SystemClock.offset+=120001;Thread.sleep(2300);check(FixtureState.events.contains("rebind:not-restored"),"120-second elapsed bound terminates reconnect round");next=new Display();ServiceManager.display=next;Thread.sleep(80);check(next.registrations==0,"deadline does not create perpetual polling");w.close();SystemClock.offset=0;
+  System.out.println("PASS "+checks+" production RootWakeObserver/RootDisplayObserver rebind fixture checks. No car service restart, wake or vehicle write.");
+ }
+}

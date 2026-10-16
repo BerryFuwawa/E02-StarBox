@@ -35,7 +35,7 @@ final class RuntimeRecovery {
             RecoveryFlow.Result result=RecoveryFlow.restore(new RecoveryFlow.Driver(){
                 public boolean current(){return RuntimeRecovery.current(app,ticket);}
                 public boolean rootBusy(){return RootAccess.busy();}
-                public void checkRoot(){RootAccess.check(app,false);if(RootAccess.available()&&(RuntimeSettings.snapshot(app).autoStart||RuntimeSettings.wakeRecovery(app)))RootAccess.prepareWake(app);}
+                public void checkRoot(){RootAccess.check(app,false);if(RootAccess.available()&&(RuntimeSettings.snapshot(app).autoStart||RuntimeSettings.wakeRecovery(app))){CommandRunner.Result observer=RootAccess.prepareWake(app);StartupTrace.record(app.getFilesDir(),"wake-observer",observer.error.isEmpty()?"registered":"unavailable");}}
                 public boolean rootNeeded(){try{return RuntimeSettings.automaticRootAllowed(app)&&!RootPermit.userEnded(app.getFilesDir());}catch(java.io.IOException invalid){return false;}}
                 public boolean rootAvailable(){return RootAccess.available();}
                 public boolean restoreWeb()throws Exception{return ConsoleService.restoreSession(app);}
@@ -43,6 +43,7 @@ final class RuntimeRecovery {
                 public void maintainAdb(){AdbMaintenance.refresh(app);}
             });
             complete=result==RecoveryFlow.Result.READY;
+            if(current(app,ticket))StartupTrace.record(app.getFilesDir(),"recovery",result.name());
             if(current(app,ticket))switch(result){
                 case READY:message="已请求恢复，实际连接状态请查看连接与远程页面";break;
                 case BUSY:message="正在处理授权，稍后恢复连接";break;
