@@ -1,8 +1,8 @@
 {
-  "version": "1.7.5",
-  "versionCode": 15,
-  "apk": "https://github.com/BerryFuwawa/E02-StarBox/releases/download/v1.7.5/E02-Starbox-v1.7.5.apk",
-  "sha256": "647092c25b76c05856b928f0b95425ad546649c778576c600a4352917a5170df",
-  "size": 11875811,
-  "notes": "修正无线 ADB 状态与开关，关闭局域网访问时保留内网穿透；增加按钮按压和镜像测试进度反馈，异常网络提示统一为黄色。暂时隐藏并停用熄火后远程保活。"
+  "version": "1.7.6",
+  "versionCode": 18,
+  "apk": "https://github.com/BerryFuwawa/E02-StarBox/releases/download/v1.7.6/E02-Starbox-v1.7.6.apk",
+  "sha256": "571c9f609b2ce9e6c968f4c5cd36e8ed2abf8771182a89195baff8c16bfcd72b",
+  "size": 11920942,
+  "notes": "完善开机与车辆唤醒后的后台、状态栏及远程连接恢复，改善断网和换网重连。增加无感悬浮窗，保留应急提权与七天日志，完善初始化。安装失败时可查看原因、重试或选择其他更新方式。\n\n【安装失败可以尝试使用EVCC更新或Github自行下载安装包更新。】"
 }
