@@ -101,8 +101,9 @@ public class ConsoleService extends Service {
   if(result==StatusEntryPublisher.Result.FAILED)AppLog.record(getFilesDir(),"状态栏","状态栏入口更新失败，将重新检查");
  }
  private void publishStatusEntry(NotificationManager manager,boolean enabled){
-  PendingIntent open=PendingIntent.getActivity(this,0,new Intent(this,MainActivity.class),PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
-  Notification.Builder notice=new Notification.Builder(this,"e02-session").setSmallIcon(getApplicationInfo().icon).setContentTitle("E02星匣 · 服务运行中").setContentText("点击返回星匣；各服务在对应页面单独停止").setContentIntent(open).setOngoing(true);
+  // Flyme prioritizes a notification PendingIntent over the plugin's bubble panel.
+  // Only the button inside StarboxStatusBarPlugin may launch the main activity.
+  Notification.Builder notice=new Notification.Builder(this,"e02-session").setSmallIcon(getApplicationInfo().icon).setContentTitle("E02星匣 · 服务运行中").setContentText("点击状态栏图标查看快捷面板").setContentIntent(null).setOngoing(true);
   // This Flyme host filters foreground-service notifications before status icons.
   // Keep notification 20 for the service, and use a separate app-owned status entry.
   notice.addExtras(StatusBarEntry.extras(this,enabled));manager.notify(STATUS_NOTIFICATION,notice.build());if(!enabled)manager.cancel(STATUS_NOTIFICATION);
